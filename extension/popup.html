@@ -4,14 +4,15 @@
   <meta charset="UTF-8">
   <style>
     :root {
-      --bg: #453a3c;        /* plum base            */
-      --panel: #4f4345;     /* cards                */
-      --input: #5a4d4f;     /* inputs / inactive    */
-      --line: #6c5c58;      /* borders              */
-      --text: #f4ebd9;      /* cream                */
-      --muted: #a39a92;     /* warm gray            */
+      --bg: #f4ebd9;        /* cream base           */
+      --panel: #fbf6ea;     /* cards                */
+      --input: #efe6d4;     /* inputs / inactive    */
+      --line: #dccfba;      /* warm borders         */
+      --text: #453a3c;      /* plum ink             */
+      --muted: #77685d;     /* taupe                */
       --accent: #0f7173;    /* teal                 */
       --accent-hi: #148a8c; /* teal hover           */
+      --on-accent: #f4ebd9; /* cream text on teal   */
       --err: #c65c42;       /* terracotta           */
       --radius: 12px;
     }
@@ -26,8 +27,8 @@
     .sub { color: var(--muted); font-size: 11px; margin: 2px 0 13px 35px; }
     .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%;
            background: var(--muted); margin-right: 6px; vertical-align: middle; }
-    .dot.ok { background: var(--accent); box-shadow: 0 0 0 3px rgba(15,113,115,.25); }
-    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(198,92,66,.22); }
+    .dot.ok { background: var(--accent); box-shadow: 0 0 0 3px rgba(15,113,115,.20); }
+    .dot.err { background: var(--err); box-shadow: 0 0 0 3px rgba(198,92,66,.20); }
     fieldset { border: 1px solid var(--line); border-radius: var(--radius);
                padding: 11px 13px; margin-bottom: 11px; background: var(--panel); }
     legend { color: var(--muted); font-size: 10px; padding: 0 6px; text-transform: uppercase;
@@ -41,14 +42,14 @@
                   border-radius: 8px; padding: 7px; font-size: 12px; font-weight: 550; cursor: pointer;
                   transition: background .15s, color .15s, border-color .15s; }
     .seg button:hover { color: var(--text); }
-    .seg button.active { background: var(--accent); color: var(--text); border-color: var(--accent); }
+    .seg button.active { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
     .chips { display: flex; gap: 7px; }
     .chips label { flex: 1; text-align: center; background: var(--input); border: 1px solid var(--line);
                    border-radius: 8px; padding: 6px 0; cursor: pointer; color: var(--muted);
                    font-size: 12px; font-weight: 550; transition: background .15s, color .15s, border-color .15s; }
     .chips input { display: none; }
-    .chips label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--text); }
-    #scrape { width: 100%; background: var(--accent); color: var(--text); border: none; border-radius: 10px;
+    .chips label:has(input:checked) { background: var(--accent); border-color: var(--accent); color: var(--on-accent); }
+    #scrape { width: 100%; background: var(--accent); color: var(--on-accent); border: none; border-radius: 10px;
               padding: 12px; font-size: 14px; font-weight: 650; cursor: pointer; margin-top: 3px;
               transition: background .15s, transform .05s; }
     #scrape:hover { background: var(--accent-hi); }
