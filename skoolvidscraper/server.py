@@ -16,7 +16,7 @@ from flask import Flask, jsonify, request
 
 from .cookie_loader import cookies_from_list
 from .page_fetcher import fetch_lesson_page
-from .discoverer import discover_lessons, classroom_dir_name
+from .discoverer import discover_lessons, classroom_dir_name, community_dir_name
 from .extractor import resolve_video_url
 from .downloader import download_video
 from .transcribe import run as transcribe_run
@@ -69,8 +69,9 @@ def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
         JOB["total"] = len(lessons)
         _log(f"Discovered {len(all_lessons)} lesson(s); scraping {len(lessons)}.")
 
-        # Subfolder named by the classroom title (falls back to the URL id scheme).
-        out_dir = os.path.join(base_out, classroom_dir_name(url, html))
+        # Output nests as <community>/<classroom>/ (falls back to URL slug/id).
+        out_dir = os.path.join(base_out, community_dir_name(url, html),
+                               classroom_dir_name(url, html))
 
         JOB["phase"] = "Downloading"
         for i, lesson in enumerate(lessons, 1):

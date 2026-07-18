@@ -36,6 +36,33 @@ def classroom_dir_name(classroom_url: str, html: str = None) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", raw)
 
 
+def _community_display_name(html: str):
+    """The community name from __NEXT_DATA__ (pageProps.currentGroup.metadata.displayName)."""
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if not m:
+        return None
+    try:
+        nd = json.loads(m.group(1))
+        return nd["props"]["pageProps"]["currentGroup"]["metadata"].get("displayName")
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def community_dir_name(url: str, html: str = None) -> str:
+    """
+    Filesystem-safe top-level folder for the whole community. Prefers the real
+    community display name (e.g. "Leadbase Pro") from the page; falls back to the
+    URL slug (e.g. "leadbase-pro"). Output nests as <community>/<classroom>/.
+    """
+    if html:
+        name = _community_display_name(html)
+        if name:
+            return _sanitize_dir(name)
+    m = re.search(r"skool\.com/([^/?#]+)", url)
+    slug = m.group(1) if m else "community"
+    return re.sub(r"[^A-Za-z0-9._-]", "_", slug)
+
+
 def parse_lesson_spec(spec: str) -> set:
     """Parse a 1-based selection like '1-5,8,10-12' into a set of ints."""
     ids = set()

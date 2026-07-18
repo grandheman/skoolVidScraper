@@ -4,7 +4,7 @@ import sys
 
 from .cookie_loader import load_skool_cookies
 from .page_fetcher import fetch_lesson_page
-from .discoverer import discover_lessons, classroom_dir_name, select_lessons
+from .discoverer import discover_lessons, classroom_dir_name, community_dir_name, select_lessons
 from .downloader import download_video
 from .extractor import resolve_video_url
 from .logger import DownloadLogger
@@ -50,8 +50,10 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
     lessons = select_lessons(all_lessons, section=section, spec=lessons_spec)
     logger.log(f"Discovered {len(all_lessons)} lesson(s); scraping {len(lessons)}.")
 
-    # Each classroom gets its own subfolder, named by the classroom title.
+    # Output nests as <community>/<classroom>/ so lessons from the same community
+    # stay grouped even when scraped in separate runs.
     out_dir = os.path.join(config["output_directory"],
+                           community_dir_name(classroom_url, classroom_html),
                            classroom_dir_name(classroom_url, classroom_html))
 
     # Step 3: Download each lesson's video
