@@ -1,0 +1,20 @@
+{
+  "chrome_profile_path": "C:\\Users\\YOUR_USERNAME\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1",
+  "cookies_file": "./cookies.txt",
+  "classroom_url": "https://www.skool.com/YOUR-COMMUNITY/classroom/CLASSROOM_ID",
+  "output_directory": "./downloads",
+  "filename_template": "%(title)s.%(ext)s",
+  "wait_between_requests_seconds": 2,
+  "skip_already_downloaded": true,
+  "max_video_height": 720,
+  "log_file": "./logs/download_log.txt",
+  "transcription": {
+    "after_download": false,
+    "model": "small.en",
+    "device": "auto",
+    "formats": ["txt", "srt", "json"],
+    "screenshots": true,
+    "scene_threshold": 0.25,
+    "max_interval": 45
+  }
+}

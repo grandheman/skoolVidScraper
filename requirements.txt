@@ -1,0 +1,21 @@
+# skoolVidScraper dependencies
+# Install with: pip install -r requirements.txt
+
+requests>=2.34.2          # fetches Skool classroom and lesson pages
+browser-cookie3>=0.20.1   # fallback: reads Chrome cookies directly from disk
+yt-dlp>=2026.7.4          # downloads videos (also invoked as the `yt-dlp` CLI)
+
+# Transcription (only needed for transcribe.py / --transcribe)
+faster-whisper>=1.2.1     # local Whisper transcription (decodes audio via bundled PyAV)
+
+# GPU acceleration for faster-whisper on NVIDIA cards. Safe to install on any
+# machine; transcriber.py falls back to CPU automatically if CUDA is unavailable.
+nvidia-cublas-cu12>=12.9  # cuBLAS runtime (ctranslate2 dependency)
+nvidia-cudnn-cu12>=9.24   # cuDNN 9 runtime (ctranslate2 dependency)
+
+# Chrome extension launcher (only needed to run server.py)
+flask>=3.0                # local helper server the extension talks to
+
+# System tools (not pip-installable):
+#   ffmpeg  - REQUIRED for screenshots. Install: winget install Gyan.FFmpeg
+#   Node.js - needed by yt-dlp only to resolve HD YouTube format URLs.

@@ -1,0 +1,17 @@
+# Cookies - session tokens, never commit these
+cookies.txt
+cookies.json
+*_netscape.txt
+
+# Personal config - copy config.example.json to config.json and fill in your values
+config.json
+
+# Generated output
+downloads/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.env
