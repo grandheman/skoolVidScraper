@@ -48,8 +48,9 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
 
     logger.log(f"Discovered {len(lessons)} lesson(s) with videos.")
 
-    # Each classroom gets its own subfolder so multiple classrooms never collide.
-    out_dir = os.path.join(config["output_directory"], classroom_dir_name(classroom_url))
+    # Each classroom gets its own subfolder, named by the classroom title.
+    out_dir = os.path.join(config["output_directory"],
+                           classroom_dir_name(classroom_url, classroom_html))
 
     # Step 3: Download each lesson's video
     for i, lesson in enumerate(lessons, 1):

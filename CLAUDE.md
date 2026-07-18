@@ -32,7 +32,9 @@ stay at the repo root.
 
 ## Key config
 config.json (gitignored; copy from config.example.json). Key field: `classroom_url`.
-Downloads land in `output_directory/<community>-<classroomId>/` (one subfolder per classroom).
+Downloads land in `output_directory/<Classroom Title>/` (one subfolder per classroom,
+named by the classroom title from __NEXT_DATA__; falls back to <community>-<classroomId>).
+Each folder gets an INGEST.md telling a downstream AI agent how to read the files.
 
 ## Video hosting styles
 - Direct `videoLink` in the lesson tree (Wistia/YouTube/Loom): used as-is.

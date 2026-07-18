@@ -2,11 +2,35 @@ import json
 import re
 
 
-def classroom_dir_name(classroom_url: str) -> str:
+def _sanitize_dir(name: str) -> str:
+    """Make a classroom title safe as a folder name."""
+    name = re.sub(r'[<>:"/\\|?*\n\r\t]', " ", name).strip().rstrip(". ")
+    name = re.sub(r"\s+", " ", name)
+    return name or "classroom"
+
+
+def _classroom_title(html: str):
+    """The human classroom title from __NEXT_DATA__ (pageProps.course.course.metadata.title)."""
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if not m:
+        return None
+    try:
+        nd = json.loads(m.group(1))
+        return nd["props"]["pageProps"]["course"]["course"]["metadata"].get("title")
+    except (ValueError, KeyError, TypeError):
+        return None
+
+
+def classroom_dir_name(classroom_url: str, html: str = None) -> str:
     """
-    Derive a stable, filesystem-safe subfolder name for a classroom from its URL,
-    e.g. https://www.skool.com/leadbase-pro/classroom/29f082b3?md=... -> leadbase-pro-29f082b3.
+    Filesystem-safe subfolder name for a classroom. Prefers the real classroom
+    title (e.g. "The Agentic Agency Playbook") when the page HTML is available;
+    falls back to <community>-<classroomId> from the URL otherwise.
     """
+    if html:
+        title = _classroom_title(html)
+        if title:
+            return _sanitize_dir(title)
     m = re.search(r"skool\.com/([^/]+)/classroom/([^/?#]+)", classroom_url)
     raw = f"{m.group(1)}-{m.group(2)}" if m else "classroom"
     return re.sub(r"[^A-Za-z0-9._-]", "_", raw)

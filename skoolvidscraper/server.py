@@ -49,8 +49,6 @@ def _worker(url: str, cookies: list, settings: dict):
     config = load_config()
     base_out = config.get("output_directory", "./downloads")
     fname = config.get("filename_template", "%(title)s.%(ext)s")
-    # Each classroom gets its own subfolder so multiple classrooms never collide.
-    out_dir = os.path.join(base_out, classroom_dir_name(url))
 
     try:
         JOB["phase"] = "Loading cookies"
@@ -64,6 +62,9 @@ def _worker(url: str, cookies: list, settings: dict):
         lessons = discover_lessons(url, html)
         JOB["total"] = len(lessons)
         _log(f"Discovered {len(lessons)} lesson(s) with videos.")
+
+        # Subfolder named by the classroom title (falls back to the URL id scheme).
+        out_dir = os.path.join(base_out, classroom_dir_name(url, html))
 
         JOB["phase"] = "Downloading"
         for i, lesson in enumerate(lessons, 1):

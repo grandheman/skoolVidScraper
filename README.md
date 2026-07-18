@@ -66,6 +66,7 @@ so nothing is missed even on talking-head lessons.
 - **Local, offline transcription** with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (auto-detects an NVIDIA GPU, falls back to CPU)
 - **Scene-change + interval screenshots** via ffmpeg, named by timestamp
 - **Consolidated JSON** aligning each transcript segment to the on-screen frame
+- Drops an **`INGEST.md`** in every folder so a downstream AI agent knows the schema
 - Handles **Mux signed-HLS**, Wistia, YouTube, Loom, and more (via yt-dlp)
 - **Per-classroom output folders**, tidy and collision-free
 - Runs as a **system-tray app**, a **CLI**, or a **local server**
@@ -117,7 +118,8 @@ skoolvidscraper transcribe --formats json --no-screenshots
 For each lesson, next to the downloaded video:
 
 ```
-downloads/<community>-<classroomId>/
+downloads/<Classroom Title>/
+  INGEST.md                 # tells a downstream AI agent how to read this folder
   Introduction.mp4
   Introduction.txt          # plain transcript
   Introduction.srt          # subtitles
