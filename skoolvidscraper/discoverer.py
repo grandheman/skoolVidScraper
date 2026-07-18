@@ -139,10 +139,14 @@ def discover_classrooms(url: str, html: str) -> list:
         # breaking Mux resolution. Build the URL from the short id.
         short_id = c.get("name") or cid
         meta = c.get("metadata", {}) if isinstance(c.get("metadata"), dict) else {}
+        # Locked/paid classrooms report hasAccess=None (and privacy=1); accessible
+        # ones report hasAccess=1. There's nothing to scrape behind the paywall.
+        has_access = meta.get("hasAccess") is not None
         out.append({
             "id": cid,
             "title": meta.get("title") or short_id,
             "classroom_url": f"https://www.skool.com/{group}/classroom/{short_id}",
+            "has_access": has_access,
         })
     return out
 

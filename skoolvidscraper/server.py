@@ -137,6 +137,14 @@ def _run_job(job: dict):
     job["title"] = classroom_dir_name(url, html)
     _log(job, f"Discovered {len(all_lessons)} lesson(s); scraping {len(lessons)}.")
 
+    # No lessons means the classroom is locked/paid or empty: don't create an empty
+    # output folder or report a misleading "done". Mark it skipped and move on.
+    if not lessons:
+        job["status"] = "skipped"
+        job["phase"] = "No access / empty"
+        _log(job, "No lessons found (locked/paid or empty classroom) - skipped.")
+        return
+
     # Output nests as <community>/<classroom>/ (falls back to URL slug/id).
     out_dir = os.path.join(base_out, community_dir_name(url, html),
                            classroom_dir_name(url, html))
@@ -222,8 +230,10 @@ def _worker_loop():
         job["status"] = "running"
         try:
             _run_job(job)
-            job["status"] = "done"
-            _log(job, "All done.")
+            # _run_job may set a terminal status itself (e.g. "skipped"); don't clobber.
+            if job["status"] == "running":
+                job["status"] = "done"
+                _log(job, "All done.")
         except Exception as e:
             # One classroom failing must never abort the rest of the queue.
             job["status"] = "error"
@@ -254,7 +264,7 @@ def status():
     with _state_lock:
         jobs = [_jobs[i] for i in _order]
     active = next((j for j in jobs if j["status"] == "running"), None)
-    finished = [j for j in jobs if j["status"] in ("done", "error")]
+    finished = [j for j in jobs if j["status"] in ("done", "error", "skipped")]
     return jsonify({
         "active": _with_log(active) if active else None,
         "last": _with_log(finished[-1]) if finished else None,
@@ -336,9 +346,18 @@ def scrape():
             return jsonify({"ok": False, "error": f"Could not read community: {e}"}), 500
         if not classrooms:
             return jsonify({"ok": False, "error": "No classrooms found in this community."}), 404
+        # Skip locked/paid classrooms up front - there's nothing behind the paywall.
+        accessible = [c for c in classrooms if c.get("has_access")]
+        skipped = [c["title"] for c in classrooms if not c.get("has_access")]
+        if not accessible:
+            return jsonify({"ok": False,
+                            "error": "No accessible classrooms (all are locked/paid)."}), 403
         ids = [_new_job(c["classroom_url"], cookies, settings, None, {}, title=c["title"])["id"]
-               for c in classrooms]
-        return jsonify({"ok": True, "message": f"Queued {len(ids)} classroom(s).", "job_ids": ids})
+               for c in accessible]
+        msg = f"Queued {len(ids)} classroom(s)."
+        if skipped:
+            msg += f" Skipped {len(skipped)} (no access): {', '.join(skipped)}."
+        return jsonify({"ok": True, "message": msg, "job_ids": ids, "skipped": skipped})
 
     job = _new_job(url, cookies, settings, lesson_ids, resource_urls)
     return jsonify({"ok": True, "message": "Queued.", "job_id": job["id"]})

@@ -226,8 +226,10 @@ function renderQueue(s) {
   const rows = [];
   if (s.active) rows.push(["run", "run", s.active.title]);
   for (const j of s.queue || []) rows.push(["queued", "", j.title]);
-  for (const j of (s.recent || []).slice(-3))
-    rows.push([j.status === "error" ? "failed" : "done", j.status === "error" ? "err" : "", j.title]);
+  for (const j of (s.recent || []).slice(-3)) {
+    const badge = j.status === "error" ? "failed" : j.status === "skipped" ? "no access" : "done";
+    rows.push([badge, j.status === "error" ? "err" : "", j.title]);
+  }
   if (!rows.length) { q.style.display = "none"; return; }
   q.style.display = "block";
   q.innerHTML = `<div class="qh">Queue</div>` + rows.map(([badge, cls, name]) =>

@@ -38,7 +38,8 @@ Extension resolves `file_id` → signed URL (passes WAF); server downloads it.
 
 | # | Case | Expected | Status |
 |---|------|----------|--------|
-| M3.1 | Extension POST to `api2.skool.com/files/<id>/download-url?expire=28800` | 200 + signed `files.skool.com` URL (passes WAF from browser) | ☐ QA-chrome |
+| M3.1 | Browser POST to `api2.skool.com/files/<id>/download-url?expire=28800` | 200, plain-text signed `files.skool.com` URL; `resolveResourceUrls` parses it | ☑ (browser) |
+| M3.1b | Same fetch from the actual extension popup origin | file downloads via a real scrape | ☐ handoff |
 | M3.2 | Server GET of signed URL (no auth) | file bytes saved to `resources/<base>/` | ☑ |
 | M3.3 | PDF saved with correct `file_name` | 51823-byte `Leadbase_Pro_Checklist_2025.pdf`, `path` recorded | ☑ |
 | M3.4 | file_id with no resolvable URL | skipped/logged, run continues | ☑ |
@@ -57,6 +58,8 @@ Community index URL scrapes all classrooms; server runs a sequential job queue.
 | M4.5 | `/status` reports active job + pending queue | active+queue+recent in response; popup renders | ☑ / ☐ QA-chrome |
 | M4.6 | One classroom failing does not abort the batch | job 2 errored, jobs 3-4 still completed | ☑ |
 | M4.7 | Per-job cookie snapshot (no shared temp-file clobber) | `skool_cookies_<id>.txt` per job | ☑ |
+| M4.8 | Locked/paid classrooms skipped up front in a community scrape | 6 queued, 2 skipped, names reported in message | ☑ |
+| M4.9 | A 0-lesson job is marked `skipped` (no empty folder, not "done") | status=skipped, no output folder created | ☑ |
 
 ## Regression
 
