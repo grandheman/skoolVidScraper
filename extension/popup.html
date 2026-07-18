@@ -17,8 +17,10 @@
       --radius: 12px;
     }
     * { box-sizing: border-box; margin: 0; padding: 0; }
+    /* width + gutter on the scroll root so the vertical scrollbar never clips controls */
+    html { width: 420px; overflow-x: hidden; scrollbar-gutter: stable; }
     body {
-      width: 340px; background: var(--bg); color: var(--text);
+      background: var(--bg); color: var(--text);
       font: 13px/1.45 -apple-system, "Segoe UI", system-ui, sans-serif; padding: 15px 14px 14px;
     }
     header { display: flex; align-items: center; gap: 9px; margin-bottom: 3px; }
@@ -65,13 +67,14 @@
     #lcount { color: var(--muted); font-size: 11px; }
     .lbtns button { background: none; border: none; color: var(--accent); font-size: 12px;
                     font-weight: 650; cursor: pointer; padding: 2px 3px; }
-    .lessons { max-height: 190px; overflow-y: auto; border: 1px solid var(--line);
+    .lessons { max-height: 230px; overflow-y: auto; overflow-x: hidden; border: 1px solid var(--line);
                border-radius: 8px; background: var(--bg); padding: 4px 5px; }
     .sechead { display: flex; align-items: center; gap: 8px; margin: 6px 4px 2px; font-size: 10px;
                font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .05em; }
     .lsec:first-child .sechead { margin-top: 2px; }
-    .lrow { display: flex; align-items: center; gap: 8px; padding: 3px 6px 3px 16px; font-size: 12px; color: var(--text); }
-    .lrow span { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .lrow { display: flex; align-items: flex-start; gap: 8px; padding: 3px 6px 3px 16px; font-size: 12px; color: var(--text); }
+    .lrow span { line-height: 1.35; }
+    .lrow input { margin-top: 2px; }
     .lrow input, .sechead input { accent-color: var(--accent); flex: none; cursor: pointer; }
   </style>
 </head>
