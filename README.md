@@ -22,6 +22,12 @@ agents, RAG pipelines, or note systems.
 ![Local & offline](https://img.shields.io/badge/transcription-local%20%26%20offline-brightgreen.svg)
 ![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
 
+<p align="center">
+  <img src="assets/extension-popup.png" alt="skoolVidScraper Chrome extension popup: run mode, quality, Whisper model, screenshots, transcript formats, and a Scrape this classroom button" width="340">
+  <br>
+  <em>One click from the classroom tab: pick your settings and scrape.</em>
+</p>
+
 ---
 
 ## Why
