@@ -93,8 +93,14 @@ pip install ".[tray,gpu]"
    ```
 2. Load the extension: open `chrome://extensions`, enable **Developer mode**, click
    **Load unpacked**, and select the `extension/` folder.
-3. Open a Skool classroom tab, click the extension icon, choose your settings, and
-   hit **Scrape this classroom**. Progress shows right in the popup.
+3. Open a Skool classroom tab, click the extension icon, tick the lessons you want
+   (or leave them all), and hit **Scrape this classroom**. Progress shows in the popup.
+
+<p align="center">
+  <img src="assets/lesson-picker.png" alt="Lesson picker: choose which lessons or whole sections to scrape" width="320">
+  <br>
+  <em>Cherry-pick individual lessons or whole sections before scraping.</em>
+</p>
 
 That is it. No cookie exports, no config files. The extension reads your live
 Skool session (including the HttpOnly auth cookies) and hands the job to the local
