@@ -36,11 +36,11 @@ Extension resolves `file_id` → signed URL (passes WAF); server downloads it.
 
 | # | Case | Expected | Status |
 |---|------|----------|--------|
-| M3.1 | Extension POST to `api2.skool.com/files/<id>/download-url?expire=28800` | 200 + signed `files.skool.com` URL | ☐ |
-| M3.2 | Server GET of signed URL (no auth) | file bytes saved to `resources/` | ☐ |
-| M3.3 | PDF saved with correct `file_name` | e.g. `Leadbase_Pro_Checklist_2025.pdf` | ☐ |
-| M3.4 | file_id with no resolvable URL | logged, run continues | ☐ |
-| M3.5 | External links (Google Docs/Drive/GPT) recorded, not downloaded | listed in JSON only | ☐ |
+| M3.1 | Extension POST to `api2.skool.com/files/<id>/download-url?expire=28800` | 200 + signed `files.skool.com` URL (passes WAF from browser) | ☐ QA-chrome |
+| M3.2 | Server GET of signed URL (no auth) | file bytes saved to `resources/<base>/` | ☑ |
+| M3.3 | PDF saved with correct `file_name` | 51823-byte `Leadbase_Pro_Checklist_2025.pdf`, `path` recorded | ☑ |
+| M3.4 | file_id with no resolvable URL | skipped/logged, run continues | ☑ |
+| M3.5 | External links (Google Docs/Drive/GPT) recorded, not downloaded | listed in resources.json only | ☑ |
 
 ## M4 — Community recursion + job queue
 

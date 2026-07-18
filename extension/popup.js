@@ -2,6 +2,7 @@ const SERVER = "http://127.0.0.1:8765";
 
 const el = (id) => document.getElementById(id);
 let pollTimer = null;
+let lessonResources = {}; // lesson id -> [{file_id, file_name, ...}] file resources
 
 // ---- settings persistence -------------------------------------------------
 const DEFAULTS = {
@@ -159,6 +160,9 @@ async function loadLessons() {
       return;
     }
     renderLessons(j.lessons);
+    lessonResources = {};
+    for (const L of j.lessons)
+      lessonResources[L.id] = (L.resources || []).filter((r) => r.type === "file");
   } catch {
     el("lcount").textContent = "could not load lessons";
   }
@@ -200,6 +204,28 @@ function startPolling() {
   }, 1200);
 }
 
+// Resolve signed download URLs for Skool-hosted files. Runs in the browser so it
+// passes Skool's api2 WAF (which blocks the server); the returned files.skool.com
+// URLs are pre-signed and the server downloads them without auth.
+async function resolveResourceUrls(fileIds) {
+  const map = {};
+  for (const fid of fileIds) {
+    try {
+      const r = await fetch(`https://api2.skool.com/files/${fid}/download-url?expire=28800`,
+        { method: "POST", credentials: "include" });
+      if (!r.ok) continue;
+      const text = (await r.text()).trim();
+      let url = text;
+      try {
+        const j = JSON.parse(text);
+        url = typeof j === "string" ? j : (j.url || j.download_url || j.downloadUrl || url);
+      } catch { /* plain-text URL */ }
+      if (typeof url === "string" && url.startsWith("http")) map[fid] = url;
+    } catch { /* skip this file */ }
+  }
+  return map;
+}
+
 async function scrape() {
   const url = await getActiveTabUrl();
   if (!url.includes("skool.com/") || !url.includes("/classroom")) {
@@ -213,13 +239,25 @@ async function scrape() {
     if (!lesson_ids.length) { el("status").textContent = "Select at least one lesson."; return; }
   }
   el("scrape").disabled = true;
+
+  // Resolve attached-file download URLs for the selected lessons (browser-side).
+  const selIds = lesson_ids || Object.keys(lessonResources);
+  const fileIds = [...new Set(
+    selIds.flatMap((id) => (lessonResources[id] || []).map((r) => r.file_id).filter(Boolean))
+  )];
+  let resource_urls = {};
+  if (fileIds.length) {
+    el("status").textContent = `Resolving ${fileIds.length} attachment(s)…`;
+    resource_urls = await resolveResourceUrls(fileIds);
+  }
+
   el("status").textContent = "Reading cookies…";
   const cookies = await getSkoolCookies();
   try {
     const r = await fetch(`${SERVER}/scrape`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, cookies, settings: readSettings(), lesson_ids }),
+      body: JSON.stringify({ url, cookies, settings: readSettings(), lesson_ids, resource_urls }),
     });
     const j = await r.json();
     if (!j.ok) { el("status").textContent = j.error || "Failed to start."; el("scrape").disabled = false; return; }
