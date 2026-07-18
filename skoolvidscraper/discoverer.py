@@ -36,6 +36,37 @@ def classroom_dir_name(classroom_url: str, html: str = None) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", raw)
 
 
+def parse_lesson_spec(spec: str) -> set:
+    """Parse a 1-based selection like '1-5,8,10-12' into a set of ints."""
+    ids = set()
+    for part in str(spec).split(","):
+        part = part.strip()
+        if not part:
+            continue
+        if "-" in part:
+            a, b = part.split("-", 1)
+            ids.update(range(int(a), int(b) + 1))
+        else:
+            ids.add(int(part))
+    return ids
+
+
+def select_lessons(lessons: list, section: str = None, spec: str = None) -> list:
+    """
+    Filter a discovered lesson list. `section` keeps lessons whose section title
+    contains the given text (case-insensitive); `spec` then keeps 1-based
+    positions in the (already section-filtered) order, e.g. '1-5,8'.
+    """
+    out = lessons
+    if section:
+        s = section.lower()
+        out = [L for L in out if s in (L.get("section_title") or "").lower()]
+    if spec:
+        idxs = parse_lesson_spec(spec)
+        out = [L for i, L in enumerate(out, 1) if i in idxs]
+    return out
+
+
 def discover_lessons(classroom_url: str, html: str) -> list:
     """
     Parse the classroom root page and return a flat list of all lessons that have videos.

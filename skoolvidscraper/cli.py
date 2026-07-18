@@ -15,7 +15,8 @@ def _cmd_tray(args):
 def _cmd_scrape(args):
     from .main import run
     run(transcribe=args.transcribe, formats=args.formats, model=args.model,
-        device=args.device, no_screenshots=args.no_screenshots)
+        device=args.device, no_screenshots=args.no_screenshots,
+        section=args.section, lessons_spec=args.lessons)
 
 
 def _cmd_transcribe(args):
@@ -55,6 +56,8 @@ def build_parser():
                     help="Transcription device (default: from config).")
     cp.add_argument("--no-screenshots", action="store_true",
                     help="Skip scene-change screenshot capture.")
+    cp.add_argument("--section", help="Only lessons whose section title contains this text.")
+    cp.add_argument("--lessons", help="Only these 1-based lessons, e.g. '1-5,8'.")
     cp.set_defaults(func=_cmd_scrape)
 
     xp = sub.add_parser("transcribe", help="Transcribe + screenshot an existing folder or file.")

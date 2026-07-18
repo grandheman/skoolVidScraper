@@ -52,6 +52,9 @@ Removes the manual cookies.txt export and the config.json edit. Flow:
 The extension reads the active tab URL + live Skool cookies (chrome.cookies API,
 includes HttpOnly auth cookies) and POSTs {url, cookies, settings} to server.py.
 Popup settings override config.json; config.json remains the server-side fallback.
+The popup shows a lesson checklist (grouped by section) so you scrape only what you
+pick; the server exposes POST /discover (lessons, no download) and /scrape accepts an
+optional `lesson_ids` list. CLI equivalents: `scrape --lessons 1-5,8` / `--section NAME`.
 server.py runs one job at a time and exposes GET /status for progress polling.
 Only one server can hold port 8765; when restarting, stop the old one first.
 

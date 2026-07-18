@@ -4,7 +4,7 @@ import sys
 
 from .cookie_loader import load_skool_cookies
 from .page_fetcher import fetch_lesson_page
-from .discoverer import discover_lessons, classroom_dir_name
+from .discoverer import discover_lessons, classroom_dir_name, select_lessons
 from .downloader import download_video
 from .extractor import resolve_video_url
 from .logger import DownloadLogger
@@ -18,8 +18,9 @@ def load_config(path="config.json"):
         return json.load(f)
 
 
-def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=False):
-    """Download every lesson in the configured classroom, then optionally build intake."""
+def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=False,
+        section=None, lessons_spec=None):
+    """Download lessons in the configured classroom, then optionally build intake."""
     config = load_config()
     t = config.get("transcription", {})
     logger = DownloadLogger(config["log_file"])
@@ -41,12 +42,13 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
     logger.log(f"Fetching classroom: {classroom_url}")
     try:
         classroom_html = fetch_lesson_page(classroom_url, cookiejar, wait_seconds=0)
-        lessons = discover_lessons(classroom_url, classroom_html)
+        all_lessons = discover_lessons(classroom_url, classroom_html)
     except Exception as e:
         logger.log(f"FATAL: Could not discover lessons: {e}")
         sys.exit(1)
 
-    logger.log(f"Discovered {len(lessons)} lesson(s) with videos.")
+    lessons = select_lessons(all_lessons, section=section, spec=lessons_spec)
+    logger.log(f"Discovered {len(all_lessons)} lesson(s); scraping {len(lessons)}.")
 
     # Each classroom gets its own subfolder, named by the classroom title.
     out_dir = os.path.join(config["output_directory"],
@@ -114,9 +116,12 @@ def main():
                    help="Transcription device (default: from config).")
     p.add_argument("--no-screenshots", action="store_true",
                    help="Skip scene-change screenshot capture.")
+    p.add_argument("--section", help="Only lessons whose section title contains this text.")
+    p.add_argument("--lessons", help="Only these 1-based lessons, e.g. '1-5,8'.")
     a = p.parse_args()
     run(transcribe=a.transcribe, formats=a.formats, model=a.model,
-        device=a.device, no_screenshots=a.no_screenshots)
+        device=a.device, no_screenshots=a.no_screenshots,
+        section=a.section, lessons_spec=a.lessons)
 
 
 if __name__ == "__main__":

@@ -45,7 +45,7 @@ def _reset(status="running"):
     JOB.update(status=status, phase="", done=0, total=0, log=[], error=None)
 
 
-def _worker(url: str, cookies: list, settings: dict):
+def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
     config = load_config()
     base_out = config.get("output_directory", "./downloads")
     fname = config.get("filename_template", "%(title)s.%(ext)s")
@@ -59,9 +59,15 @@ def _worker(url: str, cookies: list, settings: dict):
         JOB["phase"] = "Discovering lessons"
         _log(f"Fetching classroom: {url}")
         html = fetch_lesson_page(url, cookiejar, wait_seconds=0)
-        lessons = discover_lessons(url, html)
+        all_lessons = discover_lessons(url, html)
+        # Optional selection: only scrape the chosen lesson ids (from the popup).
+        if lesson_ids:
+            wanted = set(lesson_ids)
+            lessons = [L for L in all_lessons if L["lesson_id"] in wanted]
+        else:
+            lessons = all_lessons
         JOB["total"] = len(lessons)
-        _log(f"Discovered {len(lessons)} lesson(s) with videos.")
+        _log(f"Discovered {len(all_lessons)} lesson(s); scraping {len(lessons)}.")
 
         # Subfolder named by the classroom title (falls back to the URL id scheme).
         out_dir = os.path.join(base_out, classroom_dir_name(url, html))
@@ -127,6 +133,37 @@ def status():
     return jsonify(JOB)
 
 
+@app.route("/discover", methods=["POST", "OPTIONS"])
+def discover():
+    """Return the classroom's lesson list (no download) so the popup can offer a picker."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+
+    body = request.get_json(force=True, silent=True) or {}
+    url = body.get("url", "")
+    cookies = body.get("cookies", [])
+    if "skool.com/" not in url or "/classroom" not in url:
+        return jsonify({"ok": False, "error": "Open a Skool classroom tab first."}), 400
+    if not cookies:
+        return jsonify({"ok": False, "error": "No cookies received."}), 400
+
+    try:
+        cookie_txt = os.path.join(tempfile.gettempdir(), "skool_live_cookies.txt")
+        cookiejar, _ = cookies_from_list(cookies, cookie_txt)
+        html = fetch_lesson_page(url, cookiejar, wait_seconds=0)
+        lessons = discover_lessons(url, html)
+        return jsonify({
+            "ok": True,
+            "title": classroom_dir_name(url, html),
+            "lessons": [
+                {"id": L["lesson_id"], "title": L["lesson_title"], "section": L["section_title"]}
+                for L in lessons
+            ],
+        })
+    except Exception as e:
+        return jsonify({"ok": False, "error": str(e)}), 500
+
+
 @app.route("/scrape", methods=["POST", "OPTIONS"])
 def scrape():
     if request.method == "OPTIONS":
@@ -139,6 +176,7 @@ def scrape():
     url = body.get("url", "")
     cookies = body.get("cookies", [])
     settings = body.get("settings", {})
+    lesson_ids = body.get("lesson_ids")  # optional; None = whole classroom
 
     if "skool.com/" not in url or "/classroom" not in url:
         return jsonify({"ok": False, "error": "Open a Skool classroom tab first."}), 400
@@ -149,7 +187,7 @@ def scrape():
         if JOB["status"] == "running":
             return jsonify({"ok": False, "error": "A job is already running."}), 409
         _reset("running")
-        threading.Thread(target=_worker, args=(url, cookies, settings), daemon=True).start()
+        threading.Thread(target=_worker, args=(url, cookies, settings, lesson_ids), daemon=True).start()
 
     return jsonify({"ok": True, "message": "Scrape started."})
 

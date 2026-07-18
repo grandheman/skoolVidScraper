@@ -53,9 +53,14 @@ async function pingServer() {
     el("srvdot").className = "dot ok";
     el("srvtxt").textContent = "server connected";
     el("scrape").disabled = false;
-    if (j.status === "running") startPolling();
-    // Job finished while the popup was closed: show its final summary + log.
-    else if (j.status === "done" || j.status === "error") renderStatus(j);
+    if (j.status === "running") {
+      showPicker(false);
+      startPolling();
+    } else {
+      // Job finished while the popup was closed: show its final summary + log.
+      if (j.status === "done" || j.status === "error") renderStatus(j);
+      loadLessons();  // populate the lesson picker for a new run
+    }
     return true;
   } catch {
     el("srvdot").className = "dot err";
@@ -74,6 +79,91 @@ async function getSkoolCookies() {
   return chrome.cookies.getAll({ domain: "skool.com" });
 }
 
+// ---- lesson picker --------------------------------------------------------
+function showPicker(show) {
+  el("lessonset").style.display = show ? "" : "none";
+}
+
+function setAllLessons(checked) {
+  document.querySelectorAll("#lessons .lesson").forEach((c) => (c.checked = checked));
+  updateLessonCount();
+}
+
+function updateLessonCount() {
+  const all = [...document.querySelectorAll("#lessons .lesson")];
+  el("lcount").textContent = `${all.filter((c) => c.checked).length} of ${all.length} selected`;
+  document.querySelectorAll("#lessons .lsec").forEach((sec) => {
+    const items = [...sec.querySelectorAll(".lesson")];
+    const on = items.filter((c) => c.checked).length;
+    const head = sec.querySelector(".sec");
+    head.checked = on === items.length;
+    head.indeterminate = on > 0 && on < items.length;
+  });
+}
+
+function getSelectedLessonIds() {
+  return [...document.querySelectorAll("#lessons .lesson:checked")].map((c) => c.dataset.id);
+}
+
+function renderLessons(lessons) {
+  const box = el("lessons");
+  box.innerHTML = "";
+  let group = null, section = Symbol();
+  for (const L of lessons) {
+    if ((L.section || "General") !== section) {
+      section = L.section || "General";
+      group = document.createElement("div");
+      group.className = "lsec";
+      const head = document.createElement("label");
+      head.className = "sechead";
+      const sc = document.createElement("input");
+      sc.type = "checkbox"; sc.className = "sec"; sc.checked = true;
+      const sp = document.createElement("span");
+      sp.textContent = section;
+      head.append(sc, sp);
+      sc.addEventListener("change", () => {
+        group.querySelectorAll(".lesson").forEach((c) => (c.checked = sc.checked));
+        updateLessonCount();
+      });
+      group.appendChild(head);
+      box.appendChild(group);
+    }
+    const row = document.createElement("label");
+    row.className = "lrow";
+    const cb = document.createElement("input");
+    cb.type = "checkbox"; cb.className = "lesson"; cb.checked = true; cb.dataset.id = L.id;
+    cb.addEventListener("change", updateLessonCount);
+    const sp = document.createElement("span");
+    sp.textContent = L.title; sp.title = L.title;
+    row.append(cb, sp);
+    group.appendChild(row);
+  }
+  updateLessonCount();
+}
+
+async function loadLessons() {
+  const url = await getActiveTabUrl();
+  if (!url.includes("skool.com/") || !url.includes("/classroom")) { showPicker(false); return; }
+  showPicker(true);
+  el("lcount").textContent = "loading lessons…";
+  el("lessons").innerHTML = "";
+  try {
+    const cookies = await getSkoolCookies();
+    const j = await (await fetch(`${SERVER}/discover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ url, cookies }),
+    })).json();
+    if (!j.ok || !(j.lessons || []).length) {
+      el("lcount").textContent = j.error || "no lessons found";
+      return;
+    }
+    renderLessons(j.lessons);
+  } catch {
+    el("lcount").textContent = "could not load lessons";
+  }
+}
+
 function renderStatus(j) {
   const bar = el("bar");
   el("status").textContent =
@@ -90,6 +180,7 @@ function renderStatus(j) {
 
 function startPolling() {
   el("scrape").disabled = true;
+  showPicker(false);  // hide the lesson picker while a job runs
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
     try {
@@ -112,6 +203,12 @@ async function scrape() {
     el("status").textContent = "Open a Skool classroom tab first.";
     return;
   }
+  // If the lesson picker is populated, send only the checked lessons.
+  let lesson_ids = null;
+  if (el("lessonset").style.display !== "none" && document.querySelectorAll("#lessons .lesson").length) {
+    lesson_ids = getSelectedLessonIds();
+    if (!lesson_ids.length) { el("status").textContent = "Select at least one lesson."; return; }
+  }
   el("scrape").disabled = true;
   el("status").textContent = "Reading cookies…";
   const cookies = await getSkoolCookies();
@@ -119,7 +216,7 @@ async function scrape() {
     const r = await fetch(`${SERVER}/scrape`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url, cookies, settings: readSettings() }),
+      body: JSON.stringify({ url, cookies, settings: readSettings(), lesson_ids }),
     });
     const j = await r.json();
     if (!j.ok) { el("status").textContent = j.error || "Failed to start."; el("scrape").disabled = false; return; }
@@ -146,6 +243,9 @@ document.addEventListener("DOMContentLoaded", async () => {
     el(id).addEventListener("change", saveSettings));
   document.querySelectorAll("#fmtset input").forEach((c) =>
     c.addEventListener("change", saveSettings));
+
+  el("lall").addEventListener("click", () => setAllLessons(true));
+  el("lnone").addEventListener("click", () => setAllLessons(false));
 
   el("scrape").addEventListener("click", scrape);
   pingServer();

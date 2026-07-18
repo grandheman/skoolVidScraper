@@ -63,6 +63,7 @@ so nothing is missed even on talking-head lessons.
 ## Features
 
 - One-click **Chrome extension** launcher (reads the active URL + your live Skool cookies)
+- **Pick exactly which lessons or sections to scrape** (a checklist in the popup, or `--lessons` / `--section` on the CLI) so big classrooms aren't all-or-nothing
 - **Local, offline transcription** with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (auto-detects an NVIDIA GPU, falls back to CPU)
 - **Scene-change + interval screenshots** via ffmpeg, named by timestamp
 - **Consolidated JSON** aligning each transcript segment to the on-screen frame
@@ -102,8 +103,10 @@ helper.
 ### The command-line way
 
 ```bash
-cp config.example.json config.json     # set "classroom_url" (and provide cookies)
-skoolvidscraper scrape --transcribe     # download + transcribe + screenshots
+cp config.example.json config.json         # set "classroom_url" (and provide cookies)
+skoolvidscraper scrape --transcribe         # whole classroom: download + transcribe + screenshots
+skoolvidscraper scrape --lessons 1-5,8      # only some lessons (1-based)
+skoolvidscraper scrape --section "Getting Started"   # only a section
 ```
 
 Re-run intake on an already-downloaded folder anytime:
