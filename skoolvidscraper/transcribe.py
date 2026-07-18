@@ -63,7 +63,8 @@ Each `<Lesson>.json` looks like:
 - `desc` is the lesson's written description (may be empty).
 - `resources` are the lesson's attachments: `file` items are downloaded next to the
   lesson (see `path`); `link` items are external URLs (Google Docs, Drive, etc.) that
-  are recorded but not downloaded. Doc-only lessons have empty `segments`.
+  are recorded but not downloaded. Lessons that have no video (doc-only) do not get
+  their own `<Lesson>.json`; they are listed in `resources.json` instead.
 
 ## How to use it
 - Text only: read each segment's `text` in order (or read `<Lesson>.txt`).
@@ -108,7 +109,9 @@ def collect_media(target: str) -> list:
         # Recurse so per-classroom subfolders are found; skip screenshot dirs.
         found = []
         for root, dirs, files in os.walk(target):
-            dirs[:] = [d for d in dirs if d != "frames"]
+            # Skip generated dirs: screenshot frames and downloaded file attachments
+            # (an audio/video attachment must not be transcribed as a phantom lesson).
+            dirs[:] = [d for d in dirs if d not in ("frames", "resources")]
             found += [
                 os.path.join(root, name)
                 for name in files
@@ -194,16 +197,44 @@ def _load_manifest(folder: str) -> dict:
         return {}
 
 
+def _patch_json_resources(path: str, entry: dict):
+    """
+    Backfill desc/resources into an existing per-lesson JSON that predates them
+    (e.g. transcribed by v1, or re-run after the manifest gained downloaded paths),
+    without re-running ASR.
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+    except (OSError, ValueError):
+        return
+    new_res = entry.get("resources") or []
+    changed = False
+    if data.get("resources") != new_res and new_res:
+        data["resources"] = new_res
+        changed = True
+    if not data.get("desc") and entry.get("desc"):
+        data["desc"] = entry.get("desc")
+        changed = True
+    data.setdefault("resources", [])
+    data.setdefault("desc", entry.get("desc"))
+    if changed or "resources" not in data or "desc" not in data:
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
+
+
 def process_file(transcriber, path, formats, skip_if_exists, screenshots,
                  scene_threshold, max_interval, model, manifest_entry=None):
     media_dir = os.path.dirname(path) or "."
     base = os.path.splitext(os.path.basename(path))[0]
     targets = {fmt: os.path.join(media_dir, f"{base}.{fmt}") for fmt in formats}
+    entry = manifest_entry or {}
 
     if skip_if_exists and all(os.path.exists(p) for p in targets.values()):
+        # Still couple resources/desc into a JSON that was transcribed before them.
+        if "json" in targets and entry:
+            _patch_json_resources(targets["json"], entry)
         return True, "Already done (skipped)"
-
-    entry = manifest_entry or {}
 
     segments, info = transcriber.run_asr(path)
 

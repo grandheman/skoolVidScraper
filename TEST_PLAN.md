@@ -27,8 +27,10 @@ stop dropping `unitType=module` lessons that have no video.
 | M2.2 | Classroom root (`unitType=course`) NOT emitted as a lesson | absent | ☑ |
 | M2.3 | `resources` JSON-string parsed to list | file + link items with title | ☑ |
 | M2.4 | Video count unchanged vs. pre-M2 (no regression) | 20 video lessons, only modules carry video | ☑ |
-| M2.5 | Per-lesson JSON carries `resources` + `desc` | fields present, links recorded not fetched | ☐ QA |
-| M2.6 | Empty module (no video/resources/desc) skipped | no empty lesson entries | ☐ QA |
+| M2.5 | Per-lesson JSON carries `resources` + `desc` | fields present, links recorded not fetched | ☑ |
+| M2.6 | Empty module (no video/resources/desc) skipped | 21 lessons, 0 empty | ☑ |
+| M2.7 | Already-transcribed JSON gets backfilled with resources/desc (no re-ASR) | `_patch_json_resources` on skip | ☑ (fix) |
+| M2.8 | A media file under `resources/` is not transcribed as a phantom lesson | `collect_media` skips `resources/` | ☑ (fix) |
 
 ## M3 — Skool file attachment downloads
 
@@ -50,10 +52,10 @@ Community index URL scrapes all classrooms; server runs a sequential job queue.
 |---|------|----------|--------|
 | M4.1 | Community URL (no `/classroom/<id>`) enumerates `allCourses` | 8 classroom jobs queued (titles resolved) | ☑ |
 | M4.2 | Individual classroom URL scrapes just that one | 1 job | ☑ |
-| M4.3 | Queue runs jobs sequentially (one at a time) | single worker thread, no concurrent use | ☐ QA |
+| M4.3 | Queue runs jobs sequentially (one at a time) | 4 jobs ran back-to-back, no interval overlap | ☑ |
 | M4.4 | Second `/scrape` while running enqueues (not 409) | job #9 appended, ok=true | ☑ |
 | M4.5 | `/status` reports active job + pending queue | active+queue+recent in response; popup renders | ☑ / ☐ QA-chrome |
-| M4.6 | One classroom failing does not abort the batch | worker try/except per job | ☐ QA |
+| M4.6 | One classroom failing does not abort the batch | job 2 errored, jobs 3-4 still completed | ☑ |
 | M4.7 | Per-job cookie snapshot (no shared temp-file clobber) | `skool_cookies_<id>.txt` per job | ☑ |
 
 ## Regression
@@ -62,5 +64,11 @@ Community index URL scrapes all classrooms; server runs a sequential job queue.
 |---|------|----------|--------|
 | R.1 | Single-classroom download-only run still works | video only, nested path | ☐ |
 | R.2 | `--transcribe` intake still produces txt/srt/json + frames | unchanged | ☐ |
-| R.3 | Mux HLS lesson still resolves + merges | merged mp4 | ☐ |
+| R.3 | Mux HLS lesson still resolves | `stream.mux.com` URL returned | ☑ (fixed) |
+
+**R.3 note:** Skool now redirects long classroom ids (from `allCourses`) to short
+ids and mangles the `?md=` param, which broke Mux resolution for community-expanded
+jobs. Fixed by building community classroom URLs from `allCourses[].name` (the short
+id). Single-classroom scrapes were unaffected (the active-tab URL is already short).
+Full HLS merge-to-mp4 still needs a real download run (☐ QA).
 | R.4 | Existing `skip_if_exists` still skips done work | skipped | ☐ |

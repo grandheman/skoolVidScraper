@@ -134,11 +134,15 @@ def discover_classrooms(url: str, html: str) -> list:
         cid = c.get("id")
         if not cid:
             continue
+        # `name` is the SHORT classroom id used in real URLs (e.g. "0db4209e"); the
+        # long `id` from allCourses 307-redirects and mangles per-lesson ?md= params,
+        # breaking Mux resolution. Build the URL from the short id.
+        short_id = c.get("name") or cid
         meta = c.get("metadata", {}) if isinstance(c.get("metadata"), dict) else {}
         out.append({
             "id": cid,
-            "title": meta.get("title") or c.get("name"),
-            "classroom_url": f"https://www.skool.com/{group}/classroom/{cid}",
+            "title": meta.get("title") or short_id,
+            "classroom_url": f"https://www.skool.com/{group}/classroom/{short_id}",
         })
     return out
 
