@@ -104,6 +104,45 @@ def _parse_resources(raw) -> list:
     return out
 
 
+def is_classroom_url(url: str) -> bool:
+    """
+    True for an individual classroom URL (…/classroom/<id>[?md=…]); False for a
+    community classroom index (…/classroom) that lists many classrooms.
+    """
+    return bool(re.search(r"skool\.com/[^/]+/classroom/[^/?#]+", url))
+
+
+def discover_classrooms(url: str, html: str) -> list:
+    """
+    Parse a community classroom-index page and return every classroom in it as
+    [{"id", "title", "classroom_url"}]. The list lives in pageProps.allCourses;
+    each classroom's lessons are fetched separately from its own /classroom/<id> page.
+    """
+    m = re.search(r'<script id="__NEXT_DATA__"[^>]*>(.*?)</script>', html, re.DOTALL)
+    if not m:
+        raise RuntimeError("__NEXT_DATA__ not found on community page.")
+    try:
+        nd = json.loads(m.group(1))
+    except json.JSONDecodeError as e:
+        raise RuntimeError(f"Failed to parse __NEXT_DATA__ JSON: {e}")
+
+    courses = nd.get("props", {}).get("pageProps", {}).get("allCourses") or []
+    group_m = re.search(r"skool\.com/([^/?#]+)", url)
+    group = group_m.group(1) if group_m else ""
+    out = []
+    for c in courses:
+        cid = c.get("id")
+        if not cid:
+            continue
+        meta = c.get("metadata", {}) if isinstance(c.get("metadata"), dict) else {}
+        out.append({
+            "id": cid,
+            "title": meta.get("title") or c.get("name"),
+            "classroom_url": f"https://www.skool.com/{group}/classroom/{cid}",
+        })
+    return out
+
+
 def parse_lesson_spec(spec: str) -> set:
     """Parse a 1-based selection like '1-5,8,10-12' into a set of ints."""
     ids = set()

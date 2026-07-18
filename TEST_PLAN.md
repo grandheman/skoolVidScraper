@@ -48,13 +48,13 @@ Community index URL scrapes all classrooms; server runs a sequential job queue.
 
 | # | Case | Expected | Status |
 |---|------|----------|--------|
-| M4.1 | Community URL (no `/classroom/<id>`) enumerates `allCourses` | 8 classroom jobs queued | ☐ |
-| M4.2 | Individual classroom URL scrapes just that one | 1 job | ☐ |
-| M4.3 | Queue runs jobs sequentially (one at a time) | no concurrent GPU/network use | ☐ |
-| M4.4 | Second `/scrape` while running enqueues (not 409) | job appended | ☐ |
-| M4.5 | `/status` reports active job + pending queue | popup shows queue | ☐ |
-| M4.6 | One classroom failing does not abort the batch | others still run | ☐ |
-| M4.7 | Per-job cookie snapshot (no shared temp-file clobber) | each job uses its own cookies | ☐ |
+| M4.1 | Community URL (no `/classroom/<id>`) enumerates `allCourses` | 8 classroom jobs queued (titles resolved) | ☑ |
+| M4.2 | Individual classroom URL scrapes just that one | 1 job | ☑ |
+| M4.3 | Queue runs jobs sequentially (one at a time) | single worker thread, no concurrent use | ☐ QA |
+| M4.4 | Second `/scrape` while running enqueues (not 409) | job #9 appended, ok=true | ☑ |
+| M4.5 | `/status` reports active job + pending queue | active+queue+recent in response; popup renders | ☑ / ☐ QA-chrome |
+| M4.6 | One classroom failing does not abort the batch | worker try/except per job | ☐ QA |
+| M4.7 | Per-job cookie snapshot (no shared temp-file clobber) | `skool_cookies_<id>.txt` per job | ☑ |
 
 ## Regression
 

@@ -3,6 +3,10 @@ const SERVER = "http://127.0.0.1:8765";
 const el = (id) => document.getElementById(id);
 let pollTimer = null;
 let lessonResources = {}; // lesson id -> [{file_id, file_name, ...}] file resources
+let isCommunity = false;  // true when the active tab is a community classroom index
+
+const escapeHtml = (s) =>
+  String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
 // ---- settings persistence -------------------------------------------------
 const DEFAULTS = {
@@ -49,19 +53,15 @@ function syncModeUI() {
 // ---- server + scrape ------------------------------------------------------
 async function pingServer() {
   try {
-    const r = await fetch(`${SERVER}/status`);
-    const j = await r.json();
+    const s = await (await fetch(`${SERVER}/status`)).json();
     el("srvdot").className = "dot ok";
     el("srvtxt").textContent = "server connected";
     el("scrape").disabled = false;
-    if (j.status === "running") {
-      showPicker(false);
-      startPolling();
-    } else {
-      // Job finished while the popup was closed: show its final summary + log.
-      if (j.status === "done" || j.status === "error") renderStatus(j);
-      loadLessons();  // populate the lesson picker for a new run
-    }
+    renderStatus(s);
+    if (s.busy) startPolling();
+    // Always populate the picker for the current tab so more can be queued,
+    // even while another job runs.
+    loadLessons();
     return true;
   } catch {
     el("srvdot").className = "dot err";
@@ -142,12 +142,28 @@ function renderLessons(lessons) {
   updateLessonCount();
 }
 
+function renderClassrooms(classrooms) {
+  const box = el("lessons");
+  box.innerHTML = "";
+  for (const c of classrooms) {
+    const row = document.createElement("div");
+    row.className = "lrow";
+    const sp = document.createElement("span");
+    sp.textContent = c.title;
+    sp.title = c.title;
+    row.appendChild(sp);
+    box.appendChild(row);
+  }
+}
+
 async function loadLessons() {
   const url = await getActiveTabUrl();
   if (!url.includes("skool.com/") || !url.includes("/classroom")) { showPicker(false); return; }
   showPicker(true);
-  el("lcount").textContent = "loading lessons…";
+  el("lcount").textContent = "loading…";
   el("lessons").innerHTML = "";
+  isCommunity = false;
+  lessonResources = {};
   try {
     const cookies = await getSkoolCookies();
     const j = await (await fetch(`${SERVER}/discover`, {
@@ -155,48 +171,77 @@ async function loadLessons() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ url, cookies }),
     })).json();
-    if (!j.ok || !(j.lessons || []).length) {
-      el("lcount").textContent = j.error || "no lessons found";
-      return;
+    if (!j.ok) { el("lcount").textContent = j.error || "could not load"; return; }
+    if (j.classrooms) {
+      // Community index: this scrape will recurse every classroom.
+      isCommunity = true;
+      el("lall").style.display = el("lnone").style.display = "none";
+      el("lcount").textContent = `${j.classrooms.length} classrooms in this community`;
+      renderClassrooms(j.classrooms);
+      el("scrape").textContent = `Scrape all ${j.classrooms.length} classrooms`;
+    } else {
+      el("lall").style.display = el("lnone").style.display = "";
+      renderLessons(j.lessons || []);
+      for (const L of j.lessons || [])
+        lessonResources[L.id] = (L.resources || []).filter((r) => r.type === "file");
+      el("scrape").textContent = "Scrape this classroom";
     }
-    renderLessons(j.lessons);
-    lessonResources = {};
-    for (const L of j.lessons)
-      lessonResources[L.id] = (L.resources || []).filter((r) => r.type === "file");
   } catch {
     el("lcount").textContent = "could not load lessons";
   }
 }
 
-function renderStatus(j) {
+function renderStatus(s) {
   const bar = el("bar");
-  el("status").textContent =
-    j.status === "error" ? `Error: ${j.error}` :
-    j.phase ? `${j.phase}${j.total ? `  (${j.done}/${j.total})` : ""}` : j.status;
-  if (j.status === "running" && j.total) {
-    bar.style.display = "block";
-    // blend the current download % into the overall lesson progress so the bar
-    // advances smoothly even on a single long video.
-    const frac = (j.done + (j.pct || 0) / 100) / j.total;
-    bar.querySelector("i").style.width = `${Math.round(frac * 100)}%`;
+  const view = s.active || s.last;
+  if (view) {
+    el("status").textContent =
+      view.status === "error" ? `${view.title}: ${view.error}` :
+      view.phase ? `${view.title}: ${view.phase}${view.total ? `  (${view.done}/${view.total})` : ""}`
+                 : `${view.title}: ${view.status}`;
+    if (view.status === "running" && view.total) {
+      // blend the current download % into the overall lesson progress so the bar
+      // advances smoothly even on a single long video.
+      const frac = (view.done + (view.pct || 0) / 100) / view.total;
+      bar.style.display = "block";
+      bar.querySelector("i").style.width = `${Math.round(frac * 100)}%`;
+    } else if (view.status === "done") {
+      bar.style.display = "block";
+      bar.querySelector("i").style.width = "100%";
+    } else {
+      bar.style.display = "none";
+    }
+    el("log").textContent = (view.log || []).slice(-40).join("\n");
+    el("log").scrollTop = el("log").scrollHeight;
+  } else {
+    el("status").textContent = "";
+    bar.style.display = "none";
+    el("log").textContent = "";
   }
-  if (j.status === "done") { bar.style.display = "block"; bar.querySelector("i").style.width = "100%"; }
-  el("log").textContent = (j.log || []).slice(-40).join("\n");
-  el("log").scrollTop = el("log").scrollHeight;
+  renderQueue(s);
+}
+
+function renderQueue(s) {
+  const q = el("queue");
+  const rows = [];
+  if (s.active) rows.push(["run", "run", s.active.title]);
+  for (const j of s.queue || []) rows.push(["queued", "", j.title]);
+  for (const j of (s.recent || []).slice(-3))
+    rows.push([j.status === "error" ? "failed" : "done", j.status === "error" ? "err" : "", j.title]);
+  if (!rows.length) { q.style.display = "none"; return; }
+  q.style.display = "block";
+  q.innerHTML = `<div class="qh">Queue</div>` + rows.map(([badge, cls, name]) =>
+    `<div class="qrow"><span class="qbadge ${cls}">${badge}</span><span class="qname">${escapeHtml(name)}</span></div>`
+  ).join("");
 }
 
 function startPolling() {
-  el("scrape").disabled = true;
-  showPicker(false);  // hide the lesson picker while a job runs
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
     try {
-      const j = await (await fetch(`${SERVER}/status`)).json();
-      renderStatus(j);
-      if (j.status === "done" || j.status === "error") {
-        clearInterval(pollTimer);
-        el("scrape").disabled = false;
-      }
+      const s = await (await fetch(`${SERVER}/status`)).json();
+      renderStatus(s);
+      if (!s.busy) clearInterval(pollTimer);
     } catch {
       clearInterval(pollTimer);
       pingServer();
@@ -261,6 +306,8 @@ async function scrape() {
     });
     const j = await r.json();
     if (!j.ok) { el("status").textContent = j.error || "Failed to start."; el("scrape").disabled = false; return; }
+    el("status").textContent = j.message || "Queued.";
+    el("scrape").disabled = false;  // queueing allowed: line up more classrooms
     startPolling();
   } catch {
     el("status").textContent = "Could not reach server.";
