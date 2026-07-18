@@ -54,6 +54,8 @@ async function pingServer() {
     el("srvtxt").textContent = "server connected";
     el("scrape").disabled = false;
     if (j.status === "running") startPolling();
+    // Job finished while the popup was closed: show its final summary + log.
+    else if (j.status === "done" || j.status === "error") renderStatus(j);
     return true;
   } catch {
     el("srvdot").className = "dot err";
