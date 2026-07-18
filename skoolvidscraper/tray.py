@@ -34,6 +34,9 @@ def run():
             "  (or: pip install pystray pillow)"
         )
 
+    from .ffmpeg_setup import ensure_ffmpeg
+    ensure_ffmpeg()
+
     if _port_in_use(PORT):
         raise SystemExit(
             f"Port {PORT} is already in use - the server may already be running.\n"

@@ -202,6 +202,8 @@ def scrape():
 
 
 def run_server():
+    from .ffmpeg_setup import ensure_ffmpeg
+    ensure_ffmpeg()
     print(f"skoolVidScraper server on http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
     app.run(host="127.0.0.1", port=PORT, threaded=True)
 

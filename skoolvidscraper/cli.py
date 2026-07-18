@@ -80,6 +80,8 @@ def build_parser():
 
 
 def main():
+    from .ffmpeg_setup import ensure_ffmpeg
+    ensure_ffmpeg()
     args = build_parser().parse_args()
     args.func(args)
 
