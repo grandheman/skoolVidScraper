@@ -37,6 +37,9 @@ def download_video(video_url: str, output_dir: str, filename_template: str,
         "--newline",        # print progress on new lines so it shows cleanly in the terminal
         "--js-runtimes", "nodejs",  # use Node.js to resolve HD format URLs (required for YouTube)
         "--referer", referer,
+        # HLS (Loom/Mux/Wistia) is delivered as many small fragments; downloading
+        # them one at a time is very slow, so fetch several in parallel.
+        "--concurrent-fragments", "8",
         "--format",
         f"bestvideo[height<={max_height}]+bestaudio/best[height<={max_height}]/best",
     ]
