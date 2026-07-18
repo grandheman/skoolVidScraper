@@ -11,8 +11,10 @@ Binds to 127.0.0.1 only (localhost) - never exposed to the network.
 """
 import itertools
 import json
+import mimetypes
 import os
 import queue as queuelib
+import re
 import tempfile
 import threading
 
@@ -26,6 +28,7 @@ from .discoverer import (discover_lessons, discover_classrooms, is_classroom_url
 from .extractor import resolve_video_url
 from .downloader import download_video
 from .transcribe import run as transcribe_run, write_resources_manifest
+from .content import enrich_lessons_content
 
 PORT = 8765
 app = Flask(__name__)
@@ -97,11 +100,20 @@ def _download_lesson_resources(out_dir: str, lesson: dict, resource_urls: dict, 
         if not signed:
             continue
         dest_dir = os.path.join(out_dir, "resources", base)
-        fname = res.get("file_name") or f"{res.get('file_id')}.bin"
         try:
             os.makedirs(dest_dir, exist_ok=True)
             rr = requests.get(signed, timeout=120)
             rr.raise_for_status()
+            # Post attachments carry no file_name; derive one from the response.
+            fname = res.get("file_name")
+            if not fname:
+                cd = rr.headers.get("content-disposition", "")
+                m = re.search(r'filename="?([^"]+)"?', cd)
+                if m:
+                    fname = m.group(1)
+                else:
+                    ext = mimetypes.guess_extension((rr.headers.get("content-type") or "").split(";")[0].strip()) or ""
+                    fname = f"{res.get('file_id')}{ext}"
             with open(os.path.join(dest_dir, fname), "wb") as f:
                 f.write(rr.content)
             res["path"] = f"resources/{base}/{fname}"
@@ -144,6 +156,11 @@ def _run_job(job: dict):
         job["phase"] = "No access / empty"
         _log(job, "No lessons found (locked/paid or empty classroom) - skipped.")
         return
+
+    # Render readable lesson content + lift any linked discussion post (text, links,
+    # attachment) onto the lessons. Only otherwise-empty lessons trigger a page fetch.
+    job["phase"] = "Reading lesson content"
+    enrich_lessons_content(lessons, cookiejar)
 
     # Output nests as <community>/<classroom>/ (falls back to URL slug/id).
     out_dir = os.path.join(base_out, community_dir_name(url, html),
@@ -301,6 +318,8 @@ def discover():
                 "classrooms": [{"id": c["id"], "title": c["title"]} for c in classrooms],
             })
         lessons = discover_lessons(url, html)
+        # Lift post-backed content so the picker sees any attachment file_ids to resolve.
+        enrich_lessons_content(lessons, cookiejar)
         return jsonify({
             "ok": True,
             "title": classroom_dir_name(url, html),

@@ -56,6 +56,10 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
                            community_dir_name(classroom_url, classroom_html),
                            classroom_dir_name(classroom_url, classroom_html))
 
+    # Render readable lesson content + lift any linked discussion post onto lessons.
+    from .content import enrich_lessons_content
+    enrich_lessons_content(lessons, cookiejar)
+
     # Capture every lesson's non-video content (description + resources) up front,
     # so doc-only lessons and attachments are recorded even in download-only runs.
     from .transcribe import write_resources_manifest

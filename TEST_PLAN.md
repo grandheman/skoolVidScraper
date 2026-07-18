@@ -61,6 +61,21 @@ Community index URL scrapes all classrooms; server runs a sequential job queue.
 | M4.8 | Locked/paid classrooms skipped up front in a community scrape | 6 queued, 2 skipped, names reported in message | ☑ |
 | M4.9 | A 0-lesson job is marked `skipped` (no empty folder, not "done") | status=skipped, no output folder created | ☑ |
 
+## M6 — Post-backed lessons + rich-text rendering
+
+Lessons can be text (`[v2]` rich-text `desc`) or a pointer to a pinned discussion
+post. Render both to readable text + extract links; download the post attachment.
+
+| # | Case | Expected | Status |
+|---|------|----------|--------|
+| M6.1 | `[v2]` desc rendered to plain text, inline links extracted | text + link resources; no raw `[v2]` left | ☑ |
+| M6.2 | Post-backed lesson resolved (pinnedModule == lesson id) | 12 links + attachment + writeup captured | ☑ |
+| M6.3 | Post content markdown (`[ul]/[li]/[text](url)`) rendered | bullets + links | ☑ |
+| M6.4 | Video lessons untouched, no extra fetch (only empty lessons fetched) | 20/20 unchanged | ☑ |
+| M6.5 | Renderer edge cases (empty/plain/None) | no crash, sensible output | ☑ |
+| M6.6 | Post attachment (no file_name) downloads with derived name | content-disposition / content-type ext | ☐ handoff |
+| M6.7 | The originally-broken folder now has full content | 12 links + attachment + text in resources.json | ☑ |
+
 ## Regression
 
 | # | Case | Expected | Status |

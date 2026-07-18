@@ -63,8 +63,11 @@ Each `<Lesson>.json` looks like:
 - `desc` is the lesson's written description (may be empty).
 - `resources` are the lesson's attachments: `file` items are downloaded next to the
   lesson (see `path`); `link` items are external URLs (Google Docs, Drive, etc.) that
-  are recorded but not downloaded. Lessons that have no video (doc-only) do not get
-  their own `<Lesson>.json`; they are listed in `resources.json` instead.
+  are recorded but not downloaded. Links may come from the lesson body or from a linked
+  discussion post that backs the lesson. Lessons that have no video (doc-only) do not
+  get their own `<Lesson>.json`; they are listed in `resources.json` instead.
+- `desc` is rendered to readable text (Skool rich-text / linked-post content), not the
+  raw markup.
 
 ## How to use it
 - Text only: read each segment's `text` in order (or read `<Lesson>.txt`).
