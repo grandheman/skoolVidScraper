@@ -1,87 +1,110 @@
 # skoolVidScraper
 
-Turn any [Skool](https://www.skool.com) classroom you have access to into
-**agent-readable intake**: every lesson video is downloaded (low-res, for
-processing), transcribed locally, and screenshotted at each on-screen change.
-The result is one JSON per lesson where each transcript segment carries the
-screenshot that was on screen at that moment, so a downstream AI agent gets both
-**what was said** and **what was on screen**.
+**Turn any Skool classroom into agent-readable knowledge.** One click ingests an
+entire course: every lesson video is downloaded, transcribed locally, and
+screenshotted at each on-screen change, then fused into a single JSON where each
+line of transcript carries the exact frame that was on screen when it was said.
 
-Think of it as a NotebookLM-style ingestion step for Skool courses.
+Think **NotebookLM-style ingestion, but for Skool courses** and pointed at your AI
+agents, RAG pipelines, or note systems.
 
-Everything runs locally: local Whisper transcription (no API key), local ffmpeg
-screenshots, and authentication via your own live browser session (no passwords,
-no browser automation).
+> [!IMPORTANT]
+> **For personal use only.** Use skoolVidScraper only on classrooms you are a
+> legitimate, paid-up member of, and only for your own study, note-taking, and
+> private AI knowledge bases. **Do not redistribute, re-host, resell, or publicly
+> share** downloaded videos, transcripts, or screenshots, and do not use this tool
+> for piracy or any other unlawful purpose. Course content belongs to its
+> creators. You alone are responsible for complying with Skool's Terms of Service,
+> copyright law, and each creator's rights.
+
+![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
+![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue.svg)
+![Local & offline](https://img.shields.io/badge/transcription-local%20%26%20offline-brightgreen.svg)
+![PRs welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)
+
+---
+
+## Why
+
+Skool hosts a huge amount of high-signal course content, but it is locked inside a
+video player. If you want an AI agent to actually *use* a course, you need both
+**what was said** and **what was on screen** (slides, dashboards, code, diagrams),
+aligned in time. skoolVidScraper produces exactly that, entirely on your machine:
+
+- **No API keys, no cloud.** Transcription runs locally via Whisper.
+- **No passwords, no browser automation.** It authenticates with your own live
+  browser session.
+- **One click.** A bundled Chrome extension launches the whole pipeline from the
+  classroom tab you are already looking at.
+
+## How it works
+
+```mermaid
+flowchart LR
+    A[Skool classroom tab] -->|1 fetch| B[Discover every lesson]
+    B --> C[Download each video<br/>yt-dlp, low-res]
+    C --> D[Transcribe<br/>faster-whisper, local]
+    C --> E[Screenshots<br/>ffmpeg scene changes]
+    D --> F[Agent-ready JSON<br/>transcript + on-screen frame per moment]
+    E --> F
+```
+
+One authenticated fetch enumerates the full lesson tree. Videos on Wistia,
+YouTube, Loom, and **Mux signed-HLS** are all handled. Screenshots use a hybrid
+strategy: a frame at every visual change plus a guaranteed frame every N seconds,
+so nothing is missed even on talking-head lessons.
 
 ## Features
 
-- **One classroom fetch discovers every lesson** (parses Skool's `__NEXT_DATA__`).
-- **Handles both video hosting styles**: direct links (Wistia/YouTube/Loom) and
-  Mux signed HLS.
-- **Local transcription** via [faster-whisper](https://github.com/SYSTRAN/faster-whisper)
-  (auto-detects an NVIDIA GPU, falls back to CPU).
-- **Scene-change + interval screenshots** via ffmpeg: one frame per slide change,
-  plus a guaranteed frame every N seconds so nothing is missed.
-- **Consolidated JSON** aligning transcript segments to the on-screen frame.
-- **One-click Chrome extension**: open a classroom tab, click the button, done.
-  Reads your live Skool cookies, so there is no manual cookie export.
-- **Per-classroom output folders** so multiple courses never collide.
+- One-click **Chrome extension** launcher (reads the active URL + your live Skool cookies)
+- **Local, offline transcription** with [faster-whisper](https://github.com/SYSTRAN/faster-whisper) (auto-detects an NVIDIA GPU, falls back to CPU)
+- **Scene-change + interval screenshots** via ffmpeg, named by timestamp
+- **Consolidated JSON** aligning each transcript segment to the on-screen frame
+- Handles **Mux signed-HLS**, Wistia, YouTube, Loom, and more (via yt-dlp)
+- **Per-classroom output folders**, tidy and collision-free
+- Runs as a **system-tray app**, a **CLI**, or a **local server**
 
-## Requirements
+## Quickstart
 
-- Python 3.10+
-- [ffmpeg](https://ffmpeg.org/) on your PATH (`winget install Gyan.FFmpeg` on Windows)
-- (Optional) Node.js, only if you need HD YouTube-hosted lessons
-- (Optional) An NVIDIA GPU for fast transcription; CPU works too
+**Requirements:** Python 3.10+, [ffmpeg](https://ffmpeg.org/) on your PATH
+(`winget install Gyan.FFmpeg` on Windows). An NVIDIA GPU is optional (CPU works).
 
 ```bash
-pip install -r requirements.txt
+git clone https://github.com/grandheman/skoolVidScraper
+cd skoolVidScraper
+
+# install the CLI (add [tray] for the system-tray app, [gpu] for NVIDIA acceleration)
+pip install ".[tray,gpu]"
 ```
 
-## Usage
+### The one-click way (recommended)
 
-### Option A: Chrome extension (recommended)
-
-1. Start the local helper (leave it running):
+1. Start the helper as a tray app (or `skoolvidscraper serve` for a console):
    ```bash
-   python server.py
+   skoolvidscraper tray
    ```
-2. Load the extension: open `chrome://extensions`, enable **Developer mode**,
-   click **Load unpacked**, and select the `extension/` folder.
-3. Open a Skool classroom tab, click the extension icon, choose your settings
-   (run mode, quality, Whisper model, formats, screenshots), and hit
-   **Scrape this classroom**. Progress shows in the popup.
+2. Load the extension: open `chrome://extensions`, enable **Developer mode**, click
+   **Load unpacked**, and select the `extension/` folder.
+3. Open a Skool classroom tab, click the extension icon, choose your settings, and
+   hit **Scrape this classroom**. Progress shows right in the popup.
 
-The extension reads the active tab URL and your live Skool cookies (including the
-HttpOnly auth cookies), so you never export a `cookies.txt`.
+That is it. No cookie exports, no config files. The extension reads your live
+Skool session (including the HttpOnly auth cookies) and hands the job to the local
+helper.
 
-> Only one server can hold port 8765 at a time. If you restart it, stop the old
-> one first, or the extension will keep talking to the old process.
+### The command-line way
 
-### Option B: Command line
-
-1. Copy `config.example.json` to `config.json` and set `classroom_url`.
-2. Provide cookies (see below).
-3. Run:
-   ```bash
-   python main.py                 # download only
-   python main.py --transcribe    # download + transcribe + screenshots
-   ```
-
-Transcribe an already-downloaded folder at any time:
 ```bash
-python transcribe.py                       # all classrooms under ./downloads
-python transcribe.py --model medium.en
-python transcribe.py --formats json --no-screenshots
+cp config.example.json config.json     # set "classroom_url" (and provide cookies)
+skoolvidscraper scrape --transcribe     # download + transcribe + screenshots
 ```
 
-## Cookies (command-line mode)
+Re-run intake on an already-downloaded folder anytime:
 
-The Chrome extension supplies cookies automatically. For the CLI, provide them one of:
-
-1. `cookies.txt` (Netscape format) in the project root
-2. `cookies.json` (a Chrome cookie-export extension's JSON)
-3. Direct Chrome read via browser-cookie3 (may fail on Chrome 127+)
+```bash
+skoolvidscraper transcribe --model medium.en
+skoolvidscraper transcribe --formats json --no-screenshots
+```
 
 ## Output
 
@@ -89,11 +112,11 @@ For each lesson, next to the downloaded video:
 
 ```
 downloads/<community>-<classroomId>/
-  <Lesson>.mp4
-  <Lesson>.txt          # plain transcript
-  <Lesson>.srt          # subtitles
-  <Lesson>.json         # agent-facing: segments + screenshot per segment
-  frames/<Lesson>/HH-MM-SS.jpg
+  Introduction.mp4
+  Introduction.txt          # plain transcript
+  Introduction.srt          # subtitles
+  Introduction.json         # agent-facing: each segment + the frame on screen
+  frames/Introduction/HH-MM-SS.jpg
 ```
 
 The `.json` is the artifact meant for an AI agent:
@@ -104,16 +127,16 @@ The `.json` is the artifact meant for an AI agent:
   "language": "en",
   "duration": 547.18,
   "segments": [
-    { "start": 0.0, "end": 6.3, "text": "...", "screenshot": "frames/Introduction/00-00-00.jpg" }
+    { "start": 142.2, "end": 147.4, "text": "...", "screenshot": "frames/Introduction/00-02-20.jpg" }
   ],
-  "screenshots": [ { "t": 0.0, "file": "frames/Introduction/00-00-00.jpg" } ]
+  "screenshots": [ { "t": 140.85, "file": "frames/Introduction/00-02-20.jpg" } ]
 }
 ```
 
 ## Configuration
 
-All defaults live in `config.json` (see `config.example.json`). The extension's
-popup settings override these per run. Key fields:
+Defaults live in `config.json` (copy from `config.example.json`). The extension's
+popup settings override these per run.
 
 | Field | Purpose |
 |-------|---------|
@@ -125,9 +148,32 @@ popup settings override these per run. Key fields:
 | `transcription.scene_threshold` | Screenshot sensitivity (lower = more frames) |
 | `transcription.max_interval` | Guarantee a frame every N seconds (0 = pure scene-change) |
 
-## Notes
+## Cookies (command-line mode only)
 
-- Videos are downloaded at low resolution on purpose (they are for processing,
-  not viewing). 720p keeps on-screen text legible for the screenshots.
-- Only scrape classrooms you are legitimately a member of and have the right to
-  access. This tool authenticates as you.
+The Chrome extension supplies cookies automatically. For the CLI, provide them via
+`cookies.txt` (Netscape format), `cookies.json` (a Chrome cookie-export extension's
+JSON), or a direct Chrome read (browser-cookie3, may fail on Chrome 127+).
+
+## Please use responsibly
+
+Only scrape classrooms you are legitimately a member of and have the right to
+access. This tool authenticates as you and is intended for personal study,
+note-taking, and building private AI knowledge bases. Respect Skool's Terms of
+Service and each creator's rights.
+
+## Acknowledgements
+
+This project began as a fork of
+[**kjf305/skool-video-downloader**](https://github.com/kjf305/skool-video-downloader),
+the original Skool downloader that made the discovery approach possible. Huge
+thanks to [@kjf305](https://github.com/kjf305) for the head start. skoolVidScraper
+has since been substantially rewritten into a full intake engine (local
+transcription, screenshots, Mux support, and a one-click extension).
+
+Built with [yt-dlp](https://github.com/yt-dlp/yt-dlp),
+[faster-whisper](https://github.com/SYSTRAN/faster-whisper), and
+[ffmpeg](https://ffmpeg.org/).
+
+## License
+
+[MIT](LICENSE). If this saved you time, a star helps others find it. Contributions welcome.

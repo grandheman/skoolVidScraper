@@ -14,12 +14,12 @@ import threading
 
 from flask import Flask, jsonify, request
 
-from cookie_loader import cookies_from_list
-from page_fetcher import fetch_lesson_page
-from discoverer import discover_lessons, classroom_dir_name
-from extractor import resolve_video_url
-from downloader import download_video
-from transcribe import run as transcribe_run
+from .cookie_loader import cookies_from_list
+from .page_fetcher import fetch_lesson_page
+from .discoverer import discover_lessons, classroom_dir_name
+from .extractor import resolve_video_url
+from .downloader import download_video
+from .transcribe import run as transcribe_run
 
 PORT = 8765
 app = Flask(__name__)
@@ -153,6 +153,10 @@ def scrape():
     return jsonify({"ok": True, "message": "Scrape started."})
 
 
-if __name__ == "__main__":
-    print(f"Skool intake server on http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
+def run_server():
+    print(f"skoolVidScraper server on http://127.0.0.1:{PORT}  (Ctrl+C to stop)")
     app.run(host="127.0.0.1", port=PORT, threaded=True)
+
+
+if __name__ == "__main__":
+    run_server()

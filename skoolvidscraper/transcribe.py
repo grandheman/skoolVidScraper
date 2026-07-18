@@ -14,8 +14,8 @@ import json
 import os
 import sys
 
-from transcriber import Transcriber, VIDEO_EXTENSIONS
-from screenshots import extract_screenshots
+from .transcriber import Transcriber, VIDEO_EXTENSIONS
+from .screenshots import extract_screenshots
 
 VALID_FORMATS = ("txt", "srt", "json")
 

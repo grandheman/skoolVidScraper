@@ -1,14 +1,13 @@
-import argparse
 import json
 import os
 import sys
 
-from cookie_loader import load_skool_cookies
-from page_fetcher import fetch_lesson_page
-from discoverer import discover_lessons, classroom_dir_name
-from downloader import download_video
-from extractor import resolve_video_url
-from logger import DownloadLogger
+from .cookie_loader import load_skool_cookies
+from .page_fetcher import fetch_lesson_page
+from .discoverer import discover_lessons, classroom_dir_name
+from .downloader import download_video
+from .extractor import resolve_video_url
+from .logger import DownloadLogger
 
 
 def load_config(path="config.json"):
@@ -19,30 +18,12 @@ def load_config(path="config.json"):
         return json.load(f)
 
 
-def parse_args(config):
-    t = config.get("transcription", {})
-    parser = argparse.ArgumentParser(description="Download all videos from a Skool classroom.")
-    parser.add_argument("--transcribe", action="store_true",
-                        default=t.get("after_download", False),
-                        help="Transcribe downloaded videos with Whisper after the run.")
-    parser.add_argument("--formats", nargs="+", choices=("txt", "srt", "json"),
-                        default=t.get("formats", ["txt", "srt", "json"]),
-                        help="Transcript output formats (default: txt srt json).")
-    parser.add_argument("--model", default=t.get("model", "small.en"),
-                        help="Whisper model size (default: small.en).")
-    parser.add_argument("--device", default=t.get("device", "auto"),
-                        choices=("auto", "cuda", "cpu"),
-                        help="Transcription device (default: auto).")
-    parser.add_argument("--no-screenshots", action="store_true",
-                        help="Skip scene-change screenshot capture during transcription.")
-    return parser.parse_args()
-
-
-def main():
+def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=False):
+    """Download every lesson in the configured classroom, then optionally build intake."""
     config = load_config()
-    args = parse_args(config)
+    t = config.get("transcription", {})
     logger = DownloadLogger(config["log_file"])
-    logger.log("=== Skool Video Downloader Starting ===")
+    logger.log("=== skoolVidScraper starting ===")
 
     # Step 1: Load cookies
     try:
@@ -105,20 +86,36 @@ def main():
     logger.summary()
 
     # Step 4: Optionally transcribe + screenshot everything that was downloaded.
-    if args.transcribe:
+    if transcribe:
         logger.log("=== Building intake (transcripts + screenshots) ===")
-        t = config.get("transcription", {})
-        from transcribe import run as transcribe_run
+        from .transcribe import run as transcribe_run
         transcribe_run(
             target=out_dir,
-            formats=args.formats,
-            model=args.model,
-            device=args.device,
+            formats=formats or t.get("formats", ["txt", "srt", "json"]),
+            model=model or t.get("model", "small.en"),
+            device=device or t.get("device", "auto"),
             skip_if_exists=config.get("skip_already_downloaded", True),
-            screenshots=not args.no_screenshots,
+            screenshots=not no_screenshots,
             scene_threshold=t.get("scene_threshold", 0.25),
             max_interval=t.get("max_interval", 45),
         )
+
+
+def main():
+    import argparse
+    p = argparse.ArgumentParser(description="Download a Skool classroom (uses config.json).")
+    p.add_argument("--transcribe", action="store_true",
+                   help="Transcribe + screenshot downloaded videos after the run.")
+    p.add_argument("--formats", nargs="+", choices=("txt", "srt", "json"),
+                   help="Transcript output formats (default: from config).")
+    p.add_argument("--model", help="Whisper model size (default: from config).")
+    p.add_argument("--device", choices=("auto", "cuda", "cpu"),
+                   help="Transcription device (default: from config).")
+    p.add_argument("--no-screenshots", action="store_true",
+                   help="Skip scene-change screenshot capture.")
+    a = p.parse_args()
+    run(transcribe=a.transcribe, formats=a.formats, model=a.model,
+        device=a.device, no_screenshots=a.no_screenshots)
 
 
 if __name__ == "__main__":

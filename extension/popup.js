@@ -57,7 +57,7 @@ async function pingServer() {
     return true;
   } catch {
     el("srvdot").className = "dot err";
-    el("srvtxt").textContent = "server offline — run: python server.py";
+    el("srvtxt").textContent = "server offline (run: skoolvidscraper serve)";
     el("scrape").disabled = true;
     return false;
   }

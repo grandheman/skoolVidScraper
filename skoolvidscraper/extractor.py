@@ -1,7 +1,7 @@
 import json
 import re
 
-from page_fetcher import fetch_lesson_page
+from .page_fetcher import fetch_lesson_page
 
 
 def resolve_video_url(lesson_url: str, cookiejar) -> dict:

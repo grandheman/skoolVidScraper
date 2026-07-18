@@ -20,9 +20,15 @@ Authenticates via live browser cookies (no browser automation, no passwords).
   agent-readable output (segments carry the screenshot on screen at that moment)
 - ffmpeg: required for screenshots (install: winget install Gyan.FFmpeg)
 - server.py: Flask helper (localhost:8765) the Chrome extension talks to
+- cli.py: the `skoolvidscraper` command (subcommands: serve, tray, scrape, transcribe)
+- tray.py: system-tray launcher for the server (pystray; `skoolvidscraper tray`)
 - extension/: Manifest V3 Chrome extension. Reads the active classroom URL + live
   Skool cookies (chrome.cookies API) and POSTs them to server.py. Settings (run mode,
   quality, model, formats, screenshots) live in the popup UI and override config.json.
+
+All Python lives in the `skoolvidscraper/` package; `pyproject.toml` installs it
+and exposes the `skoolvidscraper` console command. `extension/` and `config.json`
+stay at the repo root.
 
 ## Key config
 config.json (gitignored; copy from config.example.json). Key field: `classroom_url`.
@@ -37,7 +43,8 @@ Downloads land in `output_directory/<community>-<classroomId>/` (one subfolder p
 
 ## Chrome extension (one-click launcher)
 Removes the manual cookies.txt export and the config.json edit. Flow:
-1. `pip install flask` and start the helper: `python server.py` (binds 127.0.0.1:8765)
+1. `pip install .` then start the helper: `skoolvidscraper serve`
+   (or `skoolvidscraper tray` for a system-tray app; binds 127.0.0.1:8765)
 2. Load `extension/` unpacked: chrome://extensions -> Developer mode -> Load unpacked
 3. Open a Skool classroom tab, click the extension, adjust settings, hit Scrape.
 The extension reads the active tab URL + live Skool cookies (chrome.cookies API,
@@ -52,15 +59,17 @@ Only one server can hold port 8765; when restarting, stop the old one first.
 3. browser-cookie3 direct Chrome read: fallback, may fail on Chrome 127+ (App-Bound Encryption)
 
 ## To run
-pip install -r requirements.txt
-python main.py
+pip install .                       # installs the `skoolvidscraper` command
+skoolvidscraper scrape --transcribe # CLI: download classroom (config.json) + build intake
+skoolvidscraper serve               # or start the server for the Chrome extension
+skoolvidscraper tray                # server as a system-tray app (needs the [tray] extra)
 
 ## Intake (transcription + screenshots)
 Local Whisper (faster-whisper) + ffmpeg scene-change screenshots. No API key, offline.
 Auto-uses NVIDIA GPU if present (cuBLAS/cuDNN come from the pip nvidia-*-cu12 packages;
 transcriber.py registers their DLL dirs on Windows), else falls back to CPU.
-- Standalone: `python transcribe.py` (recurses output_directory, skipping frames dirs)
-- With download run: `python main.py --transcribe`
+- Standalone: `skoolvidscraper transcribe` (recurses output_directory, skipping frames dirs)
+- With download run: `skoolvidscraper scrape --transcribe`
 - Flags: `--formats txt srt json`, `--model small.en`, `--device auto|cuda|cpu`,
   `--no-screenshots`, `--scene-threshold 0.25` (lower = more frames),
   `--max-interval 45` (guarantee a frame every N seconds; 0 = pure scene-change)

@@ -1,0 +1,50 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "skoolvidscraper"
+version = "1.0.0"
+description = "Turn Skool classrooms into agent-readable intake: download, transcribe (local Whisper), and screenshot every lesson into one JSON."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Hemanth Grandhige" }]
+keywords = [
+  "skool", "transcription", "whisper", "faster-whisper", "yt-dlp", "mux",
+  "ai", "agents", "rag", "notebooklm", "intake", "chrome-extension",
+]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Topic :: Multimedia :: Video",
+  "Topic :: Scientific/Engineering :: Artificial Intelligence",
+]
+dependencies = [
+  "requests>=2.31",
+  "browser-cookie3>=0.19",
+  "yt-dlp>=2024.1.1",
+  "faster-whisper>=1.0",
+  "flask>=3.0",
+]
+
+[project.optional-dependencies]
+# GPU acceleration for faster-whisper (NVIDIA). Without these it runs on CPU.
+gpu = ["nvidia-cublas-cu12>=12.3", "nvidia-cudnn-cu12>=9.0"]
+# System-tray launcher (`skoolvidscraper tray`).
+tray = ["pystray>=0.19", "pillow>=10.0"]
+
+[project.scripts]
+skoolvidscraper = "skoolvidscraper.cli:main"
+
+[project.urls]
+Homepage = "https://github.com/grandheman/skoolVidScraper"
+Repository = "https://github.com/grandheman/skoolVidScraper"
+Issues = "https://github.com/grandheman/skoolVidScraper/issues"
+
+[tool.setuptools]
+packages = ["skoolvidscraper"]
