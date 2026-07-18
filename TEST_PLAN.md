@@ -23,12 +23,12 @@ stop dropping `unitType=module` lessons that have no video.
 
 | # | Case | Expected | Status |
 |---|------|----------|--------|
-| M2.1 | Discover includes doc-only "Resources" lesson | present in lesson list | ☐ |
-| M2.2 | Classroom root (`unitType=course`) NOT emitted as a lesson | absent | ☐ |
-| M2.3 | `resources` JSON-string parsed to list | file + link items with title | ☐ |
-| M2.4 | Video count unchanged vs. pre-M2 (no regression) | same video lessons discovered | ☐ |
-| M2.5 | Per-lesson JSON carries `resources` + `desc` | fields present, links recorded not fetched | ☐ |
-| M2.6 | Empty module (no video/resources/desc) skipped | no empty lesson entries | ☐ |
+| M2.1 | Discover includes doc-only "Resources" lesson | present in lesson list | ☑ |
+| M2.2 | Classroom root (`unitType=course`) NOT emitted as a lesson | absent | ☑ |
+| M2.3 | `resources` JSON-string parsed to list | file + link items with title | ☑ |
+| M2.4 | Video count unchanged vs. pre-M2 (no regression) | 20 video lessons, only modules carry video | ☑ |
+| M2.5 | Per-lesson JSON carries `resources` + `desc` | fields present, links recorded not fetched | ☐ QA |
+| M2.6 | Empty module (no video/resources/desc) skipped | no empty lesson entries | ☐ QA |
 
 ## M3 — Skool file attachment downloads
 

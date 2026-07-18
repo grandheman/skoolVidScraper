@@ -63,6 +63,47 @@ def community_dir_name(url: str, html: str = None) -> str:
     return re.sub(r"[^A-Za-z0-9._-]", "_", slug)
 
 
+def safe_base(title: str) -> str:
+    """
+    Filename base for a lesson, matching how downloader.py names its video file
+    (minus the yt-dlp %%-escaping). Used to couple a lesson's resources to the
+    video/transcript that shares this base.
+    """
+    name = re.sub(r'[<>:"/\\|?*\n\r\t]', " ", title).strip().rstrip(". ")
+    name = re.sub(r"\s+", " ", name)
+    return name or "lesson"
+
+
+def _parse_resources(raw) -> list:
+    """
+    Normalize a lesson's `resources` (a JSON string in __NEXT_DATA__) into a list.
+    Each item is either a Skool-hosted file or an external link:
+      {"type": "file", "title", "file_id", "file_name", "content_type"}
+      {"type": "link", "title", "link"}
+    """
+    if not raw:
+        return []
+    try:
+        items = json.loads(raw) if isinstance(raw, str) else raw
+    except (ValueError, TypeError):
+        return []
+    out = []
+    for it in items if isinstance(items, list) else []:
+        if not isinstance(it, dict):
+            continue
+        if it.get("file_id"):
+            out.append({
+                "type": "file",
+                "title": it.get("title"),
+                "file_id": it["file_id"],
+                "file_name": it.get("file_name"),
+                "content_type": it.get("file_content_type"),
+            })
+        elif it.get("link"):
+            out.append({"type": "link", "title": it.get("title"), "link": it["link"]})
+    return out
+
+
 def parse_lesson_spec(spec: str) -> set:
     """Parse a 1-based selection like '1-5,8,10-12' into a set of ints."""
     ids = set()
@@ -158,7 +199,8 @@ def _walk_tree(node: dict, base_url: str, section_title: str, lessons: list):
     """
     Recursively walk the course tree.
     Nodes with unitType "set" are sections - their title becomes the section label for children.
-    Nodes with unitType "module" are lessons.
+    Nodes with unitType "module" are lessons. The root node is unitType "course"
+    (the classroom itself) and is never emitted as a lesson.
     """
     course_info = node.get("course", {})
     meta = course_info.get("metadata", {}) if isinstance(course_info.get("metadata"), dict) else {}
@@ -170,23 +212,32 @@ def _walk_tree(node: dict, base_url: str, section_title: str, lessons: list):
         # This is a section grouping - recurse into its children using this title as section
         for child in children:
             _walk_tree(child, base_url, section_title=title, lessons=lessons)
+        return
 
-    elif unit_type in ("module", "course"):
-        # Two hosting styles: a direct videoLink (Wistia/YouTube/Loom), or a Mux
-        # videoId whose playable URL must be resolved from the lesson page later.
+    if unit_type == "module":
+        # The lesson (not the video) is the unit. A module can carry a video, a set
+        # of resources (files/links), a text description, or any combination. Two
+        # video hosting styles: a direct videoLink (Wistia/YouTube/Loom), or a Mux
+        # videoId whose playable URL is resolved from the lesson page later.
         video_url = meta.get("videoLink")
         has_video = bool(video_url) or bool(meta.get("videoId"))
+        resources = _parse_resources(meta.get("resources"))
+        desc = meta.get("desc")
         lesson_id = course_info.get("id")
 
-        if lesson_id and has_video:
+        # Emit any module that has some content (video, resources, or a description).
+        if lesson_id and (has_video or resources or desc):
             lessons.append({
                 "lesson_url": f"{base_url}?md={lesson_id}",
                 "lesson_id": lesson_id,
                 "lesson_title": title,
                 "section_title": section_title or "General",
                 "video_url": video_url,  # None for Mux -> resolved per-lesson at download time
+                "has_video": has_video,
+                "resources": resources,
+                "desc": desc,
             })
 
-        # Recurse in case there are nested sets/modules inside a module
-        for child in children:
-            _walk_tree(child, base_url, section_title=section_title, lessons=lessons)
+    # Recurse in case there are nested sets/modules (and to descend the root course).
+    for child in children:
+        _walk_tree(child, base_url, section_title=section_title, lessons=lessons)

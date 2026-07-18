@@ -32,6 +32,10 @@ each lesson.
 - `<Lesson>.srt`   Timestamped subtitles.
 - `<Lesson>.mp4`   The source video, low-res (reference only; usually not needed).
 - `frames/<Lesson>/HH-MM-SS.jpg`  Screenshots, one per on-screen change.
+- `resources/<Lesson>/<file>`  Attached files (PDFs, etc.) downloaded from the lesson.
+- `resources.json`  Classroom-level index of every lesson's non-video content
+  (description + attached files + external links), including doc-only lessons that
+  have no video.
 
 ## The JSON to ingest
 Each `<Lesson>.json` looks like:
@@ -41,6 +45,11 @@ Each `<Lesson>.json` looks like:
       "language": "en",
       "duration": 547.18,
       "model": "small.en",
+      "desc": "Lesson description text, if any.",
+      "resources": [
+        { "type": "file", "title": "Checklist", "file_name": "checklist.pdf", "path": "resources/<Lesson>/checklist.pdf" },
+        { "type": "link", "title": "Slides", "link": "https://docs.google.com/..." }
+      ],
       "segments": [
         { "start": 142.2, "end": 147.4, "text": "...", "screenshot": "frames/<Lesson>/00-02-20.jpg" }
       ],
@@ -51,6 +60,10 @@ Each `<Lesson>.json` looks like:
   and `end` (in seconds). `screenshot` is the frame that was on screen during that
   segment (a path relative to this folder), or null before the first frame.
 - `screenshots` lists every captured frame with its timestamp `t` (seconds).
+- `desc` is the lesson's written description (may be empty).
+- `resources` are the lesson's attachments: `file` items are downloaded next to the
+  lesson (see `path`); `link` items are external URLs (Google Docs, Drive, etc.) that
+  are recorded but not downloaded. Doc-only lessons have empty `segments`.
 
 ## How to use it
 - Text only: read each segment's `text` in order (or read `<Lesson>.txt`).
@@ -133,12 +146,15 @@ def _write_srt(path: str, segments: list):
             f.write(f"{seg['text']}\n\n")
 
 
-def _write_json(path: str, source: str, info: dict, model: str, segments: list, shots: list):
+def _write_json(path: str, source: str, info: dict, model: str, segments: list,
+                shots: list, desc=None, resources=None):
     payload = {
         "source": source,
         "language": info["language"],
         "duration": info["duration"],
         "model": model,
+        "desc": desc,
+        "resources": resources or [],
         "segments": segments,
         "screenshots": shots,
     }
@@ -146,14 +162,48 @@ def _write_json(path: str, source: str, info: dict, model: str, segments: list, 
         json.dump(payload, f, ensure_ascii=False, indent=2)
 
 
+def write_resources_manifest(out_dir: str, lessons: list):
+    """
+    Write resources.json: every lesson's non-video content (description + resources),
+    so doc-only lessons are captured and each lesson's files/links can be coupled to
+    the video/transcript that shares its `base`. Written in both run modes.
+    """
+    from .discoverer import safe_base
+    entries = [{
+        "base": safe_base(L["lesson_title"]),
+        "title": L["lesson_title"],
+        "section": L.get("section_title"),
+        "has_video": L.get("has_video", bool(L.get("video_url"))),
+        "desc": L.get("desc"),
+        "resources": L.get("resources", []),
+    } for L in lessons]
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, "resources.json"), "w", encoding="utf-8") as f:
+        json.dump(entries, f, ensure_ascii=False, indent=2)
+
+
+def _load_manifest(folder: str) -> dict:
+    """Load a folder's resources.json into a {base: entry} map (empty if absent)."""
+    path = os.path.join(folder, "resources.json")
+    if not os.path.exists(path):
+        return {}
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return {e["base"]: e for e in json.load(f) if e.get("base")}
+    except (OSError, ValueError, KeyError, TypeError):
+        return {}
+
+
 def process_file(transcriber, path, formats, skip_if_exists, screenshots,
-                 scene_threshold, max_interval, model):
+                 scene_threshold, max_interval, model, manifest_entry=None):
     media_dir = os.path.dirname(path) or "."
     base = os.path.splitext(os.path.basename(path))[0]
     targets = {fmt: os.path.join(media_dir, f"{base}.{fmt}") for fmt in formats}
 
     if skip_if_exists and all(os.path.exists(p) for p in targets.values()):
         return True, "Already done (skipped)"
+
+    entry = manifest_entry or {}
 
     segments, info = transcriber.run_asr(path)
 
@@ -174,7 +224,8 @@ def process_file(transcriber, path, formats, skip_if_exists, screenshots,
     if "srt" in targets:
         _write_srt(targets["srt"], segments)
     if "json" in targets:
-        _write_json(targets["json"], os.path.basename(path), info, model, segments, shots)
+        _write_json(targets["json"], os.path.basename(path), info, model, segments, shots,
+                    desc=entry.get("desc"), resources=entry.get("resources"))
 
     note = f" + {len(shots)} shots" if shots else ""
     return True, f"{', '.join(formats)}{note} ({transcriber.device})"
@@ -193,13 +244,19 @@ def run(target, formats, model, device, skip_if_exists=True,
     print(f"Processing {len(media)} file(s) -> {', '.join(formats)}"
           f"{' + screenshots' if screenshots else ''}\n")
 
+    manifests = {}  # folder -> {base: entry}, loaded once per folder
     failures = 0
     for i, path in enumerate(media, 1):
         print(f"[{i}/{len(media)}] {os.path.basename(path)} ...", flush=True)
+        folder = os.path.dirname(path) or "."
+        if folder not in manifests:
+            manifests[folder] = _load_manifest(folder)
+        base = os.path.splitext(os.path.basename(path))[0]
         try:
             success, message = process_file(
                 transcriber, path, formats, skip_if_exists, screenshots,
-                scene_threshold, max_interval, model
+                scene_threshold, max_interval, model,
+                manifest_entry=manifests[folder].get(base),
             )
         except Exception as e:
             success, message = False, f"Failed: {e}"

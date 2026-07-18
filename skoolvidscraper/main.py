@@ -56,12 +56,24 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
                            community_dir_name(classroom_url, classroom_html),
                            classroom_dir_name(classroom_url, classroom_html))
 
+    # Capture every lesson's non-video content (description + resources) up front,
+    # so doc-only lessons and attachments are recorded even in download-only runs.
+    from .transcribe import write_resources_manifest
+    write_resources_manifest(out_dir, lessons)
+
     # Step 3: Download each lesson's video
     for i, lesson in enumerate(lessons, 1):
         lesson_url = lesson["lesson_url"]
         title = lesson["lesson_title"]
         section = lesson["section_title"]
         video_url = lesson["video_url"]
+
+        logger.log(f"--- [{i}/{len(lessons)}] [{section}] {title}")
+
+        # Doc-only lesson (no video): its resources are already in resources.json.
+        if not lesson["has_video"]:
+            logger.record(lesson_url, title, "SKIPPED", "doc-only lesson (resources captured)")
+            continue
 
         # Mux lessons have no direct URL in the tree - resolve from the lesson page.
         if not video_url:
@@ -71,7 +83,6 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
                 logger.record(lesson_url, title, "FAILED", info["error"])
                 continue
 
-        logger.log(f"--- [{i}/{len(lessons)}] [{section}] {title}")
         logger.log(f"    Video: {video_url}")
 
         success, message = download_video(

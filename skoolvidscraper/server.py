@@ -73,9 +73,19 @@ def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
         out_dir = os.path.join(base_out, community_dir_name(url, html),
                                classroom_dir_name(url, html))
 
+        # Capture every lesson's non-video content (description + resources) up front.
+        from .transcribe import write_resources_manifest
+        write_resources_manifest(out_dir, lessons)
+
         JOB["phase"] = "Downloading"
         for i, lesson in enumerate(lessons, 1):
             _log(f"[{i}/{len(lessons)}] {lesson['lesson_title']}")
+
+            # Doc-only lesson (no video): resources already captured in resources.json.
+            if not lesson.get("has_video"):
+                _log("    SKIPPED: doc-only lesson (resources captured)")
+                JOB["done"] = i
+                continue
 
             video_url = lesson["video_url"]
             if not video_url:  # Mux lesson - resolve from its page
