@@ -171,7 +171,10 @@ function renderStatus(j) {
     j.phase ? `${j.phase}${j.total ? `  (${j.done}/${j.total})` : ""}` : j.status;
   if (j.status === "running" && j.total) {
     bar.style.display = "block";
-    bar.querySelector("i").style.width = `${Math.round((j.done / j.total) * 100)}%`;
+    // blend the current download % into the overall lesson progress so the bar
+    // advances smoothly even on a single long video.
+    const frac = (j.done + (j.pct || 0) / 100) / j.total;
+    bar.querySelector("i").style.width = `${Math.round(frac * 100)}%`;
   }
   if (j.status === "done") { bar.style.display = "block"; bar.querySelector("i").style.width = "100%"; }
   el("log").textContent = (j.log || []).slice(-40).join("\n");

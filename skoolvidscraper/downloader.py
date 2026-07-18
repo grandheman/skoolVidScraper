@@ -2,6 +2,8 @@ import subprocess
 import os
 import re
 
+_PCT_RE = re.compile(r"\[download\]\s+([0-9.]+)%")
+
 
 def _sanitize_filename(name: str) -> str:
     """Make a lesson title safe as a filename (and safe in a yt-dlp -o template)."""
@@ -12,7 +14,8 @@ def _sanitize_filename(name: str) -> str:
 
 def download_video(video_url: str, output_dir: str, filename_template: str,
                    skip_if_exists: bool = True, max_height: int = 720,
-                   referer: str = "https://www.skool.com/", title: str = None) -> tuple:
+                   referer: str = "https://www.skool.com/", title: str = None,
+                   progress_cb=None) -> tuple:
     """
     Download a video using yt-dlp.
     Returns (success: bool, message: str)
@@ -34,7 +37,8 @@ def download_video(video_url: str, output_dir: str, filename_template: str,
         "yt-dlp",
         "--output", output_path,
         "--no-warnings",
-        "--newline",        # print progress on new lines so it shows cleanly in the terminal
+        "--newline",        # print progress on new lines so we can parse a % per line
+        "--socket-timeout", "30",   # fail fast on dead connections instead of hanging
         "--js-runtimes", "nodejs",  # use Node.js to resolve HD format URLs (required for YouTube)
         "--referer", referer,
         # HLS (Loom/Mux/Wistia) is delivered as many small fragments; downloading
@@ -50,25 +54,35 @@ def download_video(video_url: str, output_dir: str, filename_template: str,
     cmd.append(video_url)
 
     try:
-        result = subprocess.run(
-            cmd,
-            stderr=subprocess.PIPE,  # capture stderr for error messages
-            text=True,
-            timeout=3600
-        )
-        if result.returncode == 0:
-            return True, "Downloaded successfully"
-        else:
-            error_msg = result.stderr.strip() or "Unknown yt-dlp error"
-            return False, error_msg
-
-    except subprocess.TimeoutExpired:
-        return False, "Timed out after 1 hour"
+        proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                                text=True, bufsize=1)
     except FileNotFoundError:
         return False, (
             "yt-dlp not found. Install it:\n"
             "  Windows: winget install yt-dlp\n"
             "  Or download from: https://github.com/yt-dlp/yt-dlp/releases"
         )
+
+    tail, last = [], -1.0
+    try:
+        for line in proc.stdout:
+            line = line.rstrip()
+            if not line:
+                continue
+            print(line, flush=True)      # keep live progress in the terminal / server console
+            tail.append(line)
+            del tail[:-15]
+            m = _PCT_RE.search(line)
+            if m and progress_cb:
+                pct = float(m.group(1))
+                if pct >= 100 or pct - last >= 1:  # throttle to ~1% steps
+                    last = pct
+                    progress_cb(pct)
+        rc = proc.wait()
     except Exception as e:
+        proc.kill()
         return False, str(e)
+
+    if rc == 0:
+        return True, "Downloaded successfully"
+    return False, "\n".join(tail[-6:]).strip() or "Unknown yt-dlp error"

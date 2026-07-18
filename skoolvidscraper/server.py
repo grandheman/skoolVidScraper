@@ -26,7 +26,7 @@ app = Flask(__name__)
 
 # Single-job model: this is a personal, one-classroom-at-a-time tool.
 _lock = threading.Lock()
-JOB = {"status": "idle", "phase": "", "done": 0, "total": 0, "log": [], "error": None}
+JOB = {"status": "idle", "phase": "", "done": 0, "total": 0, "pct": 0, "log": [], "error": None}
 
 
 def load_config(path="config.json") -> dict:
@@ -42,7 +42,7 @@ def _log(msg: str):
 
 
 def _reset(status="running"):
-    JOB.update(status=status, phase="", done=0, total=0, log=[], error=None)
+    JOB.update(status=status, phase="", done=0, total=0, pct=0, log=[], error=None)
 
 
 def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
@@ -85,6 +85,13 @@ def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
                     JOB["done"] = i
                     continue
 
+            n = len(lessons)
+            JOB["pct"] = 0
+
+            def _prog(pct, _i=i, _n=n):
+                JOB["pct"] = pct
+                JOB["phase"] = f"Downloading {_i}/{_n} ({pct:.0f}%)"
+
             success, message = download_video(
                 video_url=video_url,
                 output_dir=out_dir,
@@ -92,7 +99,9 @@ def _worker(url: str, cookies: list, settings: dict, lesson_ids=None):
                 skip_if_exists=config.get("skip_already_downloaded", True),
                 max_height=int(settings.get("max_video_height", config.get("max_video_height", 720))),
                 title=lesson["lesson_title"],
+                progress_cb=_prog,
             )
+            JOB["pct"] = 0
             _log(f"    {'OK' if success else 'FAILED'}: {message}")
             JOB["done"] = i
 
