@@ -339,4 +339,13 @@ document.addEventListener("DOMContentLoaded", async () => {
 
   el("scrape").addEventListener("click", scrape);
   pingServer();
+
+  // In the side panel (which stays open across navigation), keep the picker in
+  // sync with whatever classroom tab is active. No-op in the popup, which closes.
+  if (chrome.tabs?.onActivated) {
+    chrome.tabs.onActivated.addListener(() => loadLessons());
+    chrome.tabs.onUpdated.addListener((_id, info, tab) => {
+      if (info.status === "complete" && tab.active) loadLessons();
+    });
+  }
 });
