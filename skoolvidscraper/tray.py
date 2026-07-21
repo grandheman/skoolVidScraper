@@ -3,11 +3,35 @@ System-tray wrapper: runs the local helper server in the background with a tray
 icon, so there is no raw `python server.py` console to babysit. Right-click the
 icon to Quit. Needs the optional [tray] extra:  pip install "skoolvidscraper[tray]"
 """
+import logging
+import os
 import socket
+import sys
+import tempfile
 import threading
 import webbrowser
 
-from .server import PORT, app
+from .server import PORT, app, _ensure_worker
+
+LOG_PATH = os.path.join(tempfile.gettempdir(), "skoolvidscraper-tray.log")
+
+
+def _redirect_output_to_log():
+    """
+    Send stdout/stderr to a log file.
+
+    Tray mode has no console anyone is watching, and on Windows a console with
+    QuickEdit enabled blocks EVERY write as soon as text is selected in it - which
+    silently freezes the server mid-request (the extension then just hangs on
+    "checking server..."). The server is chatty (every yt-dlp progress line), so
+    writing to a file instead makes that class of hang impossible.
+    """
+    try:
+        f = open(LOG_PATH, "a", buffering=1, encoding="utf-8", errors="replace")
+        sys.stdout = f
+        sys.stderr = f
+    except OSError:
+        pass  # keep the console rather than losing output entirely
 
 
 def _port_in_use(port: int) -> bool:
@@ -43,6 +67,18 @@ def run():
             "Quit the existing instance first."
         )
 
+    # The extension polls /status about once a second; Werkzeug's per-request access
+    # log would otherwise write a line every poll for the life of the tray.
+    logging.getLogger("werkzeug").setLevel(logging.WARNING)
+
+    print(f"skoolVidScraper is running in the system tray (server on 127.0.0.1:{PORT}).")
+    print(f"Log: {LOG_PATH}")
+    _redirect_output_to_log()
+
+    # Start the job-queue worker (run_server() does this too; the tray drives Flask
+    # itself, so without this the worker only started lazily on the first scrape).
+    _ensure_worker()
+
     # Flask in a daemon thread; the tray icon owns the main thread.
     threading.Thread(
         target=lambda: app.run(host="127.0.0.1", port=PORT, threaded=True),
@@ -62,5 +98,4 @@ def run():
             pystray.MenuItem("Quit", lambda icon, item: icon.stop()),
         ),
     )
-    print(f"skoolVidScraper is running in the system tray (server on 127.0.0.1:{PORT}).")
     icon.run()

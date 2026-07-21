@@ -8,6 +8,16 @@ let isCommunity = false;  // true when the active tab is a community classroom i
 const escapeHtml = (s) =>
   String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// A wedged server accepts the connection but never answers, which would leave the
+// UI stuck on "checking server..." forever. Fail fast so it can report offline.
+function fetchStatus(ms = 8000) {
+  const ctl = new AbortController();
+  const timer = setTimeout(() => ctl.abort(), ms);
+  return fetch(`${SERVER}/status`, { signal: ctl.signal })
+    .then((r) => r.json())
+    .finally(() => clearTimeout(timer));
+}
+
 // ---- settings persistence -------------------------------------------------
 const DEFAULTS = {
   run_mode: "full",
@@ -53,7 +63,7 @@ function syncModeUI() {
 // ---- server + scrape ------------------------------------------------------
 async function pingServer() {
   try {
-    const s = await (await fetch(`${SERVER}/status`)).json();
+    const s = await fetchStatus();
     el("srvdot").className = "dot ok";
     el("srvtxt").textContent = "server connected";
     el("scrape").disabled = false;
@@ -241,7 +251,7 @@ function startPolling() {
   clearInterval(pollTimer);
   pollTimer = setInterval(async () => {
     try {
-      const s = await (await fetch(`${SERVER}/status`)).json();
+      const s = await fetchStatus();
       renderStatus(s);
       if (!s.busy) clearInterval(pollTimer);
     } catch {
