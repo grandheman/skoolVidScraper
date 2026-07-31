@@ -123,6 +123,8 @@ def run(transcribe=False, formats=None, model=None, device=None, no_screenshots=
 
 def main():
     import argparse
+    from .console import ensure_utf8_output
+    ensure_utf8_output()
     p = argparse.ArgumentParser(description="Download a Skool classroom (uses config.json).")
     p.add_argument("--transcribe", action="store_true",
                    help="Transcribe + screenshot downloaded videos after the run.")

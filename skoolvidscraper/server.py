@@ -391,4 +391,6 @@ def run_server():
 
 
 if __name__ == "__main__":
+    from .console import ensure_utf8_output
+    ensure_utf8_output()
     run_server()

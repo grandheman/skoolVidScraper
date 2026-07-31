@@ -80,7 +80,9 @@ def build_parser():
 
 
 def main():
+    from .console import ensure_utf8_output
     from .ffmpeg_setup import ensure_ffmpeg
+    ensure_utf8_output()
     ensure_ffmpeg()
     args = build_parser().parse_args()
     args.func(args)

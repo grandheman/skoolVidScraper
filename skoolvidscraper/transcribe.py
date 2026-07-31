@@ -333,6 +333,8 @@ def build_arg_parser(defaults: dict) -> argparse.ArgumentParser:
 
 
 def main():
+    from .console import ensure_utf8_output
+    ensure_utf8_output()
     defaults = load_config()
     args = build_arg_parser(defaults).parse_args()
     sys.exit(run(
