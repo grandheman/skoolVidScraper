@@ -55,7 +55,7 @@ def download_video(video_url: str, output_dir: str, filename_template: str,
 
     try:
         proc = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-                                text=True, bufsize=1)
+                                text=True, encoding="utf-8", errors="replace", bufsize=1)
     except FileNotFoundError:
         return False, (
             "yt-dlp not found. Install it:\n"

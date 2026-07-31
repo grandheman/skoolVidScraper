@@ -247,7 +247,7 @@ def process_file(transcriber, path, formats, skip_if_exists, screenshots,
         try:
             raw = extract_screenshots(path, frames_dir, scene_threshold, max_interval)
             shots = [{"t": s["t"], "file": f"frames/{base}/{s['file']}"} for s in raw]
-        except RuntimeError as e:
+        except Exception as e:
             # Never fail a file just because screenshots couldn't run.
             print(f"    (screenshots skipped: {e})")
 

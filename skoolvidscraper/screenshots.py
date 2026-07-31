@@ -43,7 +43,11 @@ def extract_screenshots(video_path: str, out_dir: str, scene_threshold: float = 
     ]
 
     try:
-        result = subprocess.run(cmd, check=True, stderr=subprocess.PIPE, text=True)
+        # Decode explicitly. ffmpeg echoes the input path as UTF-8, and Skool
+        # section names are full of emoji; the Windows locale codec (cp1252) has
+        # no mapping for bytes like 0x8F (in the flag/trophy emoji) and raises.
+        result = subprocess.run(cmd, check=True, stderr=subprocess.PIPE,
+                                text=True, encoding="utf-8", errors="replace")
     except FileNotFoundError:
         raise RuntimeError("ffmpeg not found on PATH (needed for screenshots).")
     except subprocess.CalledProcessError as e:
