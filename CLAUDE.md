@@ -22,6 +22,7 @@ Authenticates via live browser cookies (no browser automation, no passwords).
 - server.py: Flask helper (localhost:8765) the Chrome extension talks to
 - cli.py: the `skoolvidscraper` command (subcommands: serve, tray, scrape, transcribe)
 - tray.py: system-tray launcher for the server (pystray; `skoolvidscraper tray`)
+- console.py: ensure_utf8_output(), called by every entry point (see Text encoding)
 - extension/: Manifest V3 Chrome extension. Reads the active classroom URL + live
   Skool cookies (chrome.cookies API) and POSTs them to server.py. Settings (run mode,
   quality, model, formats, screenshots) live in the popup UI and override config.json.
@@ -85,7 +86,23 @@ transcriber.py registers their DLL dirs on Windows), else falls back to CPU.
   segment carries the screenshot filename that was on screen at that timestamp, plus a
   top-level screenshots list. Already-processed files are skipped.
 
+## Text encoding (Windows)
+Skool section and lesson titles are full of emoji, and Python on Windows defaults
+to the cp1252 locale codec, which has no mapping for bytes 0x81/0x8D/0x8F/0x90/0x9D.
+Both directions have bitten this project, so both are now handled:
+- Reading a subprocess: always pass `encoding="utf-8", errors="replace"` to
+  subprocess.run/Popen. Bare `text=True` uses the locale codec and crashes on the
+  UTF-8 path ffmpeg and yt-dlp echo back. A folder named "🏁 ..." (0x8F) killed
+  every lesson under it, while "🌱 ..." (0x8C, defined in cp1252) survived, so the
+  symptom looks like random per-classroom flakiness.
+- Printing: console.ensure_utf8_output() reconfigures stdout/stderr to UTF-8 at
+  each entry point (cli, main, server, transcribe). A real console is UTF-8, but
+  redirecting to a file or pipe drops to cp1252 and printing a title raises.
+
 ## Error handling rules
 - Never crash the full run due to a single lesson failure
 - Log every failure with a clear reason and continue
+- Guard per-lesson work with `except Exception`, not a specific type. A narrower
+  `except RuntimeError` let a UnicodeDecodeError through and discarded ASR that
+  had already finished.
 - If cookies fail to load or classroom discovery fails, exit early with a helpful message
